@@ -5,12 +5,14 @@
 
 void Main(){
 
-	Window::SetFullscreen(false);
+	Window::Resize(1280, 720);
 	Scene::SetBackground(Palette::White);
-	Board board;
+	Board board_example(false, U"./example.txt");
+	Board board_operator(true, board_example.get_board());
 	while (System::Update()) {
-		board.update();
-		board.draw();
+		board_operator.update();
+		board_example.draw();
+		board_operator.draw();
 	}
 }
 

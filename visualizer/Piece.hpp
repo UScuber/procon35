@@ -25,7 +25,7 @@ public:
 	// 正方形を取得
 	Rect get_square(void) const;
 	// 数値を取得
-	int get_number(void);
+	int get_number(void) const;
 	// 数値を設定
 	void set_number(const int num);
 
@@ -42,7 +42,7 @@ Piece::Piece(const  int num, const Point& pos, const int size) {
 	this->square = Rect{ pos, size };
 }
 void Piece::draw(void) const {
-	square.draw(this->colors[this->number]);
+	this->square.draw(this->colors[this->number]);
  }
 bool Piece::is_mouse_hover(void) const {
 	return this->square.mouseOver();
@@ -60,6 +60,6 @@ Rect Piece::get_square(void) const {
 void Piece::set_number(int num) {
 	this->number = num;
 }
-int Piece::get_number(void) {
+int Piece::get_number(void) const{
 	return  this->number;
 }

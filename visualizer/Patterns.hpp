@@ -5,7 +5,7 @@
 using Pattern = Array<Array<bool>>;
 class Patterns {
 private:
-	const Array<int> pattern_sizes = { 1,2,4,8,16,32,64,128, 256 };
+	const Array<int> pattern_sizes = { 1,2,4,8,16,32,64,128,256 };
 	Array<Pattern> patterns;
 	Array<std::pair<int, Rect>> rect_pairs;
 	int selected_idx = 0;
@@ -30,25 +30,25 @@ Patterns::Patterns(void) {
 		if (size == 1) continue;
 		// 偶数行1
 		Array<Array<bool>> tmp;
-		for (int col = 0; col < size; col++) {
-			tmp << (Array<bool>(size, (col + 1) % 2));
+		for (int row = 0; row < size; row++) {
+			tmp << (Array<bool>(size, (row + 1) % 2));
 		}
 		patterns << tmp;
 		// 奇数行1
 		Array<bool> ttmp;
-		for (int row = 0; row < size; row++) {
-			ttmp << (row + 1) % 2;
+		for (int col = 0; col < size; col++) {
+			ttmp << (col + 1) % 2;
 		}
 		patterns << Array<Array<bool>>(size, ttmp);
 	}
 	// 抜き型選択ボタンの四角形生成
 	Size size(Scene::Size().x / (int)pattern_sizes.size(), Scene::Size().y / 15);
-	for (int row = 0; row < pattern_sizes.size(); row++) {
-		for (int col = 0; col < 3; col++) {
-			Rect rect{ Point(size.x * row, Scene::Size().y * 4 / 5 + size.y * col),  size };
-			int idx = row * 3 + col - ((row == 0 and col == 0) ? 0 : 2);
+	for (int col = 0; col < pattern_sizes.size(); col++) {
+		for (int row = 0; row < 3; row++) {
+			Rect rect{ Point(size.x * col, Scene::Size().y * 4 / 5 + size.y * row),  size };
+			int idx = col * 3 + row - ((col == 0 and row == 0) ? 0 : 2);
 			this->rect_pairs << std::make_pair(idx, rect);
-			if (row == 0) break;
+			if (col == 0) break;
 		}
 	}
 }
