@@ -7,8 +7,9 @@ void Main(){
 
 	Window::Resize(1280, 720);
 	Scene::SetBackground(Palette::White);
-	Board board_example(false, U"./example.txt");
-	Board board_operator(true, board_example.get_board());
+	FilePath path = U"./example.txt";
+	BoardExample board_example(path);
+	BoardOperate board_operator(board_example.get_board());
 	while (System::Update()) {
 		board_operator.update();
 		board_example.draw();

@@ -9,53 +9,38 @@ enum class Anchor {
 };
 
 class Board {
-private:
-	// ボードの縦横
-	int height, width;
-	// 一つのピースの描画サイズ
-	int piece_size = 15;
-	// 2次元配列のボード
-	Array<Array<Piece>> board;
-	// 型抜きの配列
-	Patterns patterns;
-	// ボード上のピースが選択されてるか
-	Array<Array<bool>> is_selected;
-	// 操作用のボードか
-	bool is_operating;
-	// 手数カウント
-	int cnt_move = 0;
-	// 中心軸
-	Anchor anchor = Anchor::Lefttop;
-	// 詳細表示用フォント
-	const Font font{ 50, Typeface::Bold };
-	// ボード上に収まっているか
-	bool is_in_board(const Point& pos) const;
-	bool is_in_board(const int y, const int x) const;
-	// 中心軸を考慮した左上座標
-	Point calc_lefttop(const Point& pos) const;
-	// ピースの座標計算
-	Point calc_piece_pos(int row, int col) const;
-	// どこのピースがホバーされているかを返す 
-	Optional<Point> which_hover(void) const;
-	// ホバーで選択状態する
-	void select_piece(void);
 public:
-	// ボードをランダム生成
-	Board(bool is_example);
-	// ボードからシャッフルして生成
-	Board(bool is_example, const Array<Array<Piece>>& board);
-	// テキストファイルからボードをを生成
-	Board(bool is_example, const FilePath& path);
-	// ボードの処理
-	void update(void);
-	// 型抜きの移動
-	void move(void);
-	// ボードの描画
-	void draw(void) const;
-
-	Array<Array<Piece>> get_board(void) const;
-	void set_piece_size(const int size);
-
+	//////////////////////////////////////////////////////////////
+	// field
+	int height, width;	  // ボードの縦横
+	int piece_size = 15;	 // 一つのピースの描画サイズ
+	Array<Array<Piece>> board;  // 2次元配列のボードz
+	Patterns patterns;  // 型抜きの配列
+	Array<Array<bool>> is_selected;  // ボード上のピースが選択されてるか
+	int cnt_move = 0;  // 手数カウント
+	Anchor anchor = Anchor::Lefttop;  // 中心軸
+	const Font font{ 50, Typeface::Bold };  // 詳細表示用フォント
+	//////////////////////////////////////////////////////////////
+	// method
+	virtual Point calc_piece_pos(int row, int col) const = 0;  // ピースの座標計算
+	Point calc_lefttop(const Point& pos) const;  // 中心軸を考慮した左上座標
+	bool is_in_board(const Point& pos) const;  // ボード上に収まっているか
+	bool is_in_board(const int y, const int x) const;
+	Optional<Point> which_hover(void) const;  // どこのピースがホバーされているかを返す
+	Array<Array<Piece>> get_board(void) const;  // ボードを取得する
+	void set_piece_size(const int size);  // ピースサイズを設定
+	//////////////////////////////////////////////////////////////
+	// update
+	virtual void update(void) = 0;  // ボードの処理
+	void change_anchor(void);   // 中心軸を変更
+	void select_piece(void);  // ホバーで選択状態する
+	void move(void);  // 型抜きの移動
+	//////////////////////////////////////////////////////////////
+	// draw
+	virtual void draw(void) const = 0;  // ボードの描画
+	void draw_board(void) const;  // ピース群の描画
+	void draw_selected(void) const;  // 選択されているピースを黒く表示
+	void draw_details(void) const;  // 詳細表示
 };
 
 
@@ -71,13 +56,6 @@ Point Board::calc_lefttop(const Point& pos) const{
 	else if (this->anchor == Anchor::Rightbottom) return pos - Point{ this->patterns.get_pattern().front().size()-1, this->patterns.get_pattern().size()-1};
 	else if (this->anchor == Anchor::Righttop) return pos - Point{ this->patterns.get_pattern().front().size()-1, 0 };
 }
-Point Board::calc_piece_pos(const int row, const int col) const {
-	if (this->is_operating) {
-		return Point{ col * this->piece_size , row * this->piece_size };
-	}else {
-		return Point{ Scene::Size().x - this->width * piece_size + col * this->piece_size, row * this->piece_size };
-	}
-}
 
 Optional<Point> Board::which_hover(void) const {
 	const Point mouse_pos = Cursor::Pos();
@@ -85,7 +63,7 @@ Optional<Point> Board::which_hover(void) const {
 	res.x = mouse_pos.x / this->piece_size;
 	res.y = mouse_pos.y / this->piece_size;
 	if (is_in_board(res)) return res;
-	else return res;
+	else return none;
 }
 
 void Board::select_piece(void) {
@@ -110,72 +88,12 @@ void Board::select_piece(void) {
 	}
 }
 
-Board::Board(bool is_operating) {
-	this->is_operating = is_operating;
-	this->height = 32;
-	this->width = 32;
-	this->is_selected.resize(height, Array<bool>(width, false));
-	for (int row = 0; row < height; row++) {
-		Array<Piece> tmp;
-		for (int col = 0; col < width; col++) {
-			tmp << Piece(Random(0, 3), calc_piece_pos(row, col), piece_size);
-		}
-		this->board << tmp;
-	}
-}
-Board::Board(bool is_operating, const Array<Array<Piece>>& board) {
-	this->is_operating = is_operating;
-	this->height = board.size();
-	this->width = board.front().size();
-	this->board.resize(height, Array<Piece>(width));
-	this->is_selected.resize(height, Array<bool>(width, false));
-	Array<int> tmp;
-	for (int i = 0; i < height * width; i++) {
-		tmp << board[i / width][i % width].get_number();
-	}
-	tmp.shuffle();
-	for (int row = 0; row < this->height; row++) {
-		for (int col = 0; col < this->width; col++) {
-			int num = tmp[row * this->height + col];
-			this->board[row][col].set_number(num);
-			this->board[row][col].set_square(calc_piece_pos(row, col), this->piece_size);
-		}
-	}
-}
-Board::Board(bool is_operating, const FilePath& path) {
-	this->is_operating = is_operating;
-	TextReader reader{ path };
-	if (not reader) throw Error{ U"failed to open {}"_fmt(path) };
-	String line;
-	Array<Array<int>> tmp;
-	while (reader.readLine(line)) {
-		Array<int> row;
-		for (const char8& num : line) {
-			row << num - U'0';
-		}
-		tmp << row;
-	}
-	this->height = tmp.size();
-	this->width = tmp.front().size();
-	this->board.resize(height, Array<Piece>(width));
-	for (int row = 0; row < this->height; row++) {
-		for (int col = 0; col < this->width; col++) {
-			this->board[row][col].set_number(tmp[row][col]);
-			this->board[row][col].set_square(calc_piece_pos(row, col), this->piece_size);
-		}
-	}
-	this->is_selected.resize(height, Array<bool>(width, false));
-}
-
-void Board::update(void) {
+void Board::change_anchor(void) {
 	if (KeyQ.down()) {
 		this->anchor = static_cast<Anchor>((static_cast<int>(this->anchor) - 1 + 4) % 4);
 	}else if (KeyE.down()) {
 		this->anchor = static_cast<Anchor>((static_cast<int>(this->anchor) + 1 + 4) % 4);
 	}
-	patterns.update();
-	select_piece();
-	move();
 }
 void Board::move(void) {
 	// キーボードが押された方向を特定、なければ終了
@@ -216,28 +134,25 @@ void Board::move(void) {
 	this->cnt_move++;
 }
 
-void Board::draw(void) const {
-	patterns.draw();
-	// ピース群の描画
-	for (const Array<Piece>&ary : this->board) {
-		for (const Piece & piece : ary) {
+void Board::draw_board(void) const {
+	for (const Array<Piece>& ary : this->board) {
+		for (const Piece& piece : ary) {
 			piece.draw();
 		}
 	}
-	// 選択されているピースを黒く表示
+}
+void Board::draw_selected(void) const {
 	for (int row = 0; row < this->height; row++) {
 		for (int col = 0; col < this->width; col++) {
-			if (is_selected[row][col]){
+			if (is_selected[row][col]) {
 				board[row][col].get_square().draw(ColorF{ 0.0, 0.5 });
 			}
 		}
 	}
-	// 手数表示
-	if (is_operating) {
-		font(U"手数:{}"_fmt(cnt_move)).drawAt(Vec2{ Scene::Center().x, Scene::Size().y / 3 }, Palette::Black);
-	}
 }
-
+void Board::draw_details(void) const {
+	font(U"手数:{}"_fmt(cnt_move)).drawAt(Vec2{ Scene::Center().x, Scene::Size().y / 3 }, Palette::Black);
+}
 
 Array<Array<Piece>> Board::get_board(void) const{
 	return this->board;
@@ -247,14 +162,87 @@ void Board::set_piece_size(const int size) {
 }
 
 
-//class BoardOperate : public Board {
-//protected:
-//
-//	Point calc_piece_pos(int row, int col) const override;
-//public:
-//	using Board::Board;
-//};
-//Point BoardOperate::calc_piece_pos(int row, int col) const {
-//	return Point{ row * this->piece_size, col * this->piece_size };
-//}
+class BoardOperate : public Board {
+private:
+	Point calc_piece_pos(int row, int col) const override;
+public:
+	BoardOperate(const Array<Array<Piece>>& board);
+	void update(void) override;
+	void draw(void) const override;
+};
+Point BoardOperate::calc_piece_pos(int row, int col) const {
+	return Point{ col * this->piece_size, row * this->piece_size };
+}
+BoardOperate::BoardOperate(const Array<Array<Piece>>& board) {
+	this->height = board.size();
+	this->width = board.front().size();
+	this->board.resize(height, Array<Piece>(width));
+	this->is_selected.resize(height, Array<bool>(width, false));
+	Array<int> tmp;
+	for (int i = 0; i < height * width; i++) {
+		tmp << board[i / width][i % width].get_number();
+	}
+	tmp.shuffle();
+	for (int row = 0; row < this->height; row++) {
+		for (int col = 0; col < this->width; col++) {
+			int num = tmp[row * this->height + col];
+			this->board[row][col].set_number(num);
+			this->board[row][col].set_square(calc_piece_pos(row, col), this->piece_size);
+		}
+	}
+}
+void BoardOperate::update(void) {
+	change_anchor();
+	patterns.update();
+	select_piece();
+	move();
+}
+void BoardOperate::draw(void) const {
+	patterns.draw();
+	draw_board();
+	draw_selected();
+	draw_details();
+}
+
+
+class BoardExample : public Board {
+private:
+	Point calc_piece_pos(int row, int col) const override;
+public:
+	BoardExample(FilePath& path);
+	void update(void) override;
+	void draw(void) const override;
+};
+Point BoardExample::calc_piece_pos(int row, int col) const {
+	return Point{ Scene::Size().x - this->width * piece_size + col * this->piece_size, row * this->piece_size };
+}
+BoardExample::BoardExample(FilePath& path) {
+	TextReader reader{ path };
+	if (not reader) throw Error{ U"failed to open {}"_fmt(path) };
+	String line;
+	Array<Array<int>> tmp;
+	while (reader.readLine(line)) {
+		Array<int> row;
+		for (const char8& num : line) {
+			row << num - U'0';
+		}
+		tmp << row;
+	}
+	this->height = tmp.size();
+	this->width = tmp.front().size();
+	this->board.resize(height, Array<Piece>(width));
+	for (int row = 0; row < this->height; row++) {
+		for (int col = 0; col < this->width; col++) {
+			this->board[row][col].set_number(tmp[row][col]);
+			this->board[row][col].set_square(calc_piece_pos(row, col), this->piece_size);
+		}
+	}
+	this->is_selected.resize(height, Array<bool>(width, false));
+}
+void BoardExample::update(void) {
+	return;
+}
+void BoardExample::draw(void) const {
+	draw_board();
+}
 
