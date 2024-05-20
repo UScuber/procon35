@@ -29,13 +29,12 @@ private:
 	// 詳細表示用フォント
 	const Font font{ 50, Typeface::Bold };
 	// ボード上に収まっているか
-	bool is_in_board(int y, int x);
+	bool is_in_board(const Point& pos) const;
+	bool is_in_board(const int y, const int x) const;
 	// 中心軸を考慮した左上座標
 	Point calc_lefttop(const Point& pos) const;
 	// ピースの座標計算
 	Point calc_piece_pos(int row, int col) const;
-	// どこのピースがクリックされたかを返す  
-	Optional<Point> which_clicked(void) const;
 	// どこのピースがホバーされているかを返す 
 	Optional<Point> which_hover(void) const;
 	// ホバーで選択状態する
@@ -60,7 +59,10 @@ public:
 };
 
 
-bool Board::is_in_board(int y, int x) {
+bool Board::is_in_board(const Point& pos) const{
+	return is_in_board(pos.y, pos.x);
+}
+bool Board::is_in_board(const int y, const int x) const {
 	return (0 <= y and y < this->height and 0 <= x and x < this->width);
 }
 Point Board::calc_lefttop(const Point& pos) const{
@@ -76,25 +78,14 @@ Point Board::calc_piece_pos(const int row, const int col) const {
 		return Point{ Scene::Size().x - this->width * piece_size + col * this->piece_size, row * this->piece_size };
 	}
 }
-Optional<Point> Board::which_clicked(void) const {
-	for (int row = 0; row < height; row++) {
-		for (int col = 0; col < width; col++) {
-			if (board[row][col].is_left_clicked()) {
-				return Point{ col, row };
-			}
-		}
-	}
-	return none;
-}
+
 Optional<Point> Board::which_hover(void) const {
-	for (int row = 0; row < height; row++) {
-		for (int col = 0; col < width; col++) {
-			if (board[row][col].is_mouse_hover()) {
-				return Point{ col, row };
-			}
-		}
-	}
-	return none;
+	const Point mouse_pos = Cursor::Pos();
+	Point res{ 0,0 };
+	res.x = mouse_pos.x / this->piece_size;
+	res.y = mouse_pos.y / this->piece_size;
+	if (is_in_board(res)) return res;
+	else return res;
 }
 
 void Board::select_piece(void) {
