@@ -166,7 +166,7 @@ void Board::draw_details(Board &board) const {
 	int piece_sum = this->height * this->width;
 	assert(this->height == board.height and this->width == board.width);
 	font(U"手数:{}"_fmt(cnt_move)).drawAt(Vec2{ Scene::Center().x, Scene::Size().y / 5 }, Palette::Black);
-	font(U"不一致数{}"_fmt(cnt_lack)).drawAt(Vec2{ Scene::Center().x,  Scene::Size().y / 5 * 2 }, Palette::Black);
+	font(U"不一致数:{}"_fmt(cnt_lack)).drawAt(Vec2{ Scene::Center().x,  Scene::Size().y / 5 * 2 }, Palette::Black);
 	font(U"一致率:{:.0f}%"_fmt((double)(piece_sum - cnt_lack) / (double)piece_sum * 100.0)).drawAt(Vec2{ Scene::Center().x, Scene::Size().y / 5 * 3 }, Palette::Black);
 }
 
