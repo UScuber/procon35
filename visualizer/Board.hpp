@@ -28,33 +28,32 @@ public:
 	bool is_in_board(const int y, const int x) const;
 	Optional<Point> which_hover(void) const;  // どこのピースがホバーされているかを返す
 	Array<Array<Piece>> get_board(void) const;  // ボードを取得する
+	Piece get_piece(const int y, const int x) const; // 座標を指定してピースを取得する
 	void set_piece_size(const int size);  // ピースサイズを設定
 	//////////////////////////////////////////////////////////////
 	// update
-	virtual void update(void) = 0;  // ボードの処理
 	void change_anchor(void);   // 中心軸を変更
 	void select_piece(void);  // ホバーで選択状態する
 	void move(void);  // 型抜きの移動
 	//////////////////////////////////////////////////////////////
 	// draw
-	virtual void draw(void) const = 0;  // ボードの描画
 	void draw_board(void) const;  // ピース群の描画
 	void draw_selected(void) const;  // 選択されているピースを黒く表示
-	void draw_details(void) const;  // 詳細表示
+	void draw_details(Board &board) const;  // 詳細表示
 };
 
 
-bool Board::is_in_board(const Point& pos) const{
+bool Board::is_in_board(const Point& pos) const {
 	return is_in_board(pos.y, pos.x);
 }
 bool Board::is_in_board(const int y, const int x) const {
 	return (0 <= y and y < this->height and 0 <= x and x < this->width);
 }
-Point Board::calc_lefttop(const Point& pos) const{
+Point Board::calc_lefttop(const Point& pos) const {
 	if (this->anchor == Anchor::Lefttop) return pos;
-	else if (this->anchor == Anchor::Leftbottom) return pos - Point{ 0, this->patterns.get_pattern().size()-1 };
-	else if (this->anchor == Anchor::Rightbottom) return pos - Point{ this->patterns.get_pattern().front().size()-1, this->patterns.get_pattern().size()-1};
-	else if (this->anchor == Anchor::Righttop) return pos - Point{ this->patterns.get_pattern().front().size()-1, 0 };
+	else if (this->anchor == Anchor::Leftbottom) return pos - Point{ 0, this->patterns.get_pattern().size() - 1 };
+	else if (this->anchor == Anchor::Rightbottom) return pos - Point{ this->patterns.get_pattern().front().size() - 1, this->patterns.get_pattern().size() - 1 };
+	else if (this->anchor == Anchor::Righttop) return pos - Point{ this->patterns.get_pattern().front().size() - 1, 0 };
 }
 
 Optional<Point> Board::which_hover(void) const {
@@ -91,7 +90,8 @@ void Board::select_piece(void) {
 void Board::change_anchor(void) {
 	if (KeyQ.down()) {
 		this->anchor = static_cast<Anchor>((static_cast<int>(this->anchor) - 1 + 4) % 4);
-	}else if (KeyE.down()) {
+	}
+	else if (KeyE.down()) {
 		this->anchor = static_cast<Anchor>((static_cast<int>(this->anchor) + 1 + 4) % 4);
 	}
 }
@@ -100,13 +100,17 @@ void Board::move(void) {
 	Dir dir;
 	if (KeyW.down()) {
 		dir = Dir::U;
-	}else if (KeyA.down()) {
+	}
+	else if (KeyA.down()) {
 		dir = Dir::L;
-	}else if (KeyS.down()) {
+	}
+	else if (KeyS.down()) {
 		dir = Dir::D;
-	}else if (KeyD.down()) {
+	}
+	else if (KeyD.down()) {
 		dir = Dir::R;
-	}else {
+	}
+	else {
 		return;
 	}
 	// マウスオーバー位置を特定、なければ終了
@@ -150,12 +154,27 @@ void Board::draw_selected(void) const {
 		}
 	}
 }
-void Board::draw_details(void) const {
-	font(U"手数:{}"_fmt(cnt_move)).drawAt(Vec2{ Scene::Center().x, Scene::Size().y / 3 }, Palette::Black);
+void Board::draw_details(Board &board) const {
+	int cnt_lack = 0;
+	for (int row = 0; row < this->height; row++) {
+		for (int col = 0; col < this->width; col++) {
+			if (this->board[row][col].get_number() != board.get_piece(row, col).get_number()) {
+				cnt_lack++;
+			}
+		}
+	}
+	int piece_sum = this->height * this->width;
+	assert(this->height == board.height and this->width == board.width);
+	font(U"手数:{}"_fmt(cnt_move)).drawAt(Vec2{ Scene::Center().x, Scene::Size().y / 5 }, Palette::Black);
+	font(U"不一致数{}"_fmt(cnt_lack)).drawAt(Vec2{ Scene::Center().x,  Scene::Size().y / 5 * 2 }, Palette::Black);
+	font(U"一致率:{:.0f}%"_fmt((double)(piece_sum - cnt_lack) / (double)piece_sum * 100.0)).drawAt(Vec2{ Scene::Center().x, Scene::Size().y / 5 * 3 }, Palette::Black);
 }
 
-Array<Array<Piece>> Board::get_board(void) const{
+Array<Array<Piece>> Board::get_board(void) const {
 	return this->board;
+}
+Piece Board::get_piece(const int y, const int x) const {
+	return this->board[y][x];
 }
 void Board::set_piece_size(const int size) {
 	this->piece_size = size;
@@ -167,8 +186,8 @@ private:
 	Point calc_piece_pos(int row, int col) const override;
 public:
 	BoardOperate(const Array<Array<Piece>>& board);
-	void update(void) override;
-	void draw(void) const override;
+	void update(void);
+	void draw(Board& board) const;
 };
 Point BoardOperate::calc_piece_pos(int row, int col) const {
 	return Point{ col * this->piece_size, row * this->piece_size };
@@ -197,11 +216,11 @@ void BoardOperate::update(void) {
 	select_piece();
 	move();
 }
-void BoardOperate::draw(void) const {
+void BoardOperate::draw(Board& board) const {
 	patterns.draw();
 	draw_board();
 	draw_selected();
-	draw_details();
+	draw_details(board);
 }
 
 
@@ -210,9 +229,8 @@ private:
 	Point calc_piece_pos(int row, int col) const override;
 public:
 	BoardExample(FilePath& path);
-	void update(void) override;
 	void update(Board& board);
-	void draw(void) const override;
+	void draw(void) const;
 };
 Point BoardExample::calc_piece_pos(int row, int col) const {
 	return Point{ Scene::Size().x - this->width * piece_size + col * this->piece_size, row * this->piece_size };
@@ -244,9 +262,7 @@ void BoardExample::update(Board& board) {
 	this->is_selected = board.is_selected;
 	return;
 }
-void BoardExample::update(void) {}
 void BoardExample::draw(void) const {
 	draw_board();
 	draw_selected();
 }
-

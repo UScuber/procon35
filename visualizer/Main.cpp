@@ -14,7 +14,7 @@ void Main(){
 		board_example.update(board_operator);
 		board_operator.update();
 		board_example.draw();
-		board_operator.draw();
+		board_operator.draw(board_example);
 	}
 }
 
