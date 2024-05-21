@@ -211,6 +211,7 @@ private:
 public:
 	BoardExample(FilePath& path);
 	void update(void) override;
+	void update(Board& board);
 	void draw(void) const override;
 };
 Point BoardExample::calc_piece_pos(int row, int col) const {
@@ -239,10 +240,13 @@ BoardExample::BoardExample(FilePath& path) {
 	}
 	this->is_selected.resize(height, Array<bool>(width, false));
 }
-void BoardExample::update(void) {
+void BoardExample::update(Board& board) {
+	this->is_selected = board.is_selected;
 	return;
 }
+void BoardExample::update(void) {}
 void BoardExample::draw(void) const {
 	draw_board();
+	draw_selected();
 }
 

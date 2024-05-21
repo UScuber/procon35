@@ -11,6 +11,7 @@ void Main(){
 	BoardExample board_example(path);
 	BoardOperate board_operator(board_example.get_board());
 	while (System::Update()) {
+		board_example.update(board_operator);
 		board_operator.update();
 		board_example.draw();
 		board_operator.draw();
