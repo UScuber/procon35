@@ -7,8 +7,10 @@ void Main(){
 
 	Window::Resize(1280, 720);
 	Scene::SetBackground(Palette::White);
-	FilePath path = U"./example.txt";
-	BoardExample board_example(path);
+
+	Optional<FilePath> path = Dialog::OpenFile({ FileFilter::Text() });
+	if (not path) return;
+	BoardExample board_example(path.value());
 	BoardOperate board_operator(board_example.get_board());
 	while (System::Update()) {
 		board_example.update(board_operator);
