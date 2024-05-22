@@ -4,7 +4,7 @@
 # include "Patterns.hpp"
 
 enum class Dir {
-	U, L, D, R,
+	U, D, L, R
 };
 
 void left_slide(Array<Array<int>>& a, const Pattern& kata, const int posy, const int posx) {

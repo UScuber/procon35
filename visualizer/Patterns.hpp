@@ -20,6 +20,8 @@ public:
 	Pattern get_pattern(const int idx) const;
 	// 引数なしで現在選択されている型抜きを選択
 	Pattern get_pattern(void) const;
+	// 現在選択されている型抜きのインデックスを取得
+	int get_pattern_idx(void) const;
 };
 
 Patterns::Patterns(void) {
@@ -69,6 +71,9 @@ Pattern Patterns::get_pattern(const int idx) const {
 }
 Pattern Patterns::get_pattern(void) const {
 	return this->patterns[selected_idx];
+}
+int Patterns::get_pattern_idx(void) const {
+	return this->selected_idx;
 }
 void Patterns::update(void){
 	for (const std::pair<int, Rect>& p : rect_pairs) {

@@ -5,7 +5,8 @@
 
 void Main(){
 
-	Window::Resize(1280, 720);
+	//Window::Resize(1280, 720);
+	Window::SetFullscreen(true);
 	Scene::SetBackground(Palette::White);
 
 	Optional<FilePath> path = Dialog::OpenFile({ FileFilter::Text() });
@@ -18,6 +19,7 @@ void Main(){
 		board_example.draw();
 		board_operator.draw(board_example);
 	}
+	board_operator.save_json(U"./answer.json");
 }
 
 

@@ -3,6 +3,7 @@
 # include "Piece.hpp"
 # include "Patterns.hpp"
 # include "Slide.hpp"
+# include "Data.hpp"
 
 enum class Anchor {
 	Lefttop, Leftbottom, Rightbottom, Righttop,
@@ -20,6 +21,7 @@ public:
 	int cnt_move = 0;  // 手数カウント
 	Anchor anchor = Anchor::Lefttop;  // 中心軸
 	const Font font{ 50, Typeface::Bold };  // 詳細表示用フォント
+	DataWriter datawriter;  // 行動ログ保存用
 	//////////////////////////////////////////////////////////////
 	// method
 	virtual Point calc_piece_pos(int row, int col) const = 0;  // ピースの座標計算
@@ -30,6 +32,7 @@ public:
 	Array<Array<Piece>> get_board(void) const;  // ボードを取得する
 	Piece get_piece(const int y, const int x) const; // 座標を指定してピースを取得する
 	void set_piece_size(const int size);  // ピースサイズを設定
+	void save_json(const FilePath& path) const;  // 行動ログのjsonを保存
 	//////////////////////////////////////////////////////////////
 	// update
 	void change_anchor(void);   // 中心軸を変更
@@ -95,6 +98,11 @@ void Board::change_anchor(void) {
 		this->anchor = static_cast<Anchor>((static_cast<int>(this->anchor) + 1 + 4) % 4);
 	}
 }
+
+void Board::save_json(const FilePath& path) const {
+	this->datawriter.get_json().save(path);
+}
+
 void Board::move(void) {
 	// キーボードが押された方向を特定、なければ終了
 	Dir dir;
@@ -136,6 +144,8 @@ void Board::move(void) {
 		}
 	}
 	this->cnt_move++;
+	// 行動ログを追加
+	this->datawriter.add_op(patterns.get_pattern_idx(), pos, dir);
 }
 
 void Board::draw_board(void) const {

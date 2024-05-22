@@ -11,6 +11,7 @@ App/engine
 App/example
 App/icon.ico
 App/Resource.rc
+App/answer.json
 App/visualizer(debug).exe
 App/visualizer.exe
 App/solver.exe
