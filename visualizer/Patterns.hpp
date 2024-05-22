@@ -10,6 +10,10 @@ private:
 	Array<std::pair<int, Rect>> rect_pairs;
 	int selected_idx = 0;
 	const Font font{ 20, Typeface::Bold };
+	// マウスによる選択
+	void select_mouse(void);
+	// キーボードによる選択
+	void select_key(void);
 public:
 	Patterns(void);
 	// 型抜きの一覧描画
@@ -66,6 +70,41 @@ void Patterns::draw(void) const {
 		}
 	}
 }
+
+void Patterns::select_mouse(void) {
+	for (const std::pair<int, Rect>& p : rect_pairs) {
+		const int idx = p.first;
+		const Rect rect = p.second;
+		if (rect.leftClicked()) {
+			this->selected_idx = idx;
+		}
+	}
+}
+void Patterns::select_key(void) {
+	if (this->selected_idx == 0) {
+		if (KeyLeft.down()) this->selected_idx = 22;
+		else if (KeyRight.down()) this->selected_idx = 1;
+		return;
+	}
+	if (KeyUp.down()) {
+		if ((this->selected_idx - 1) % 3 == 0) this->selected_idx += 2;
+		else this->selected_idx--;
+	}else if (KeyDown.down()) {
+		if (this->selected_idx % 3 == 0) this->selected_idx -= 2;
+		else this->selected_idx++;
+	}else if (KeyLeft.down()) {
+		if (get_pattern().size() == 2) this->selected_idx = 0;
+		else this->selected_idx -= 3;
+	}else if (KeyRight.down()) {
+		if (get_pattern().size() == 256) this->selected_idx = 0;
+		else this->selected_idx += 3;
+	}
+}
+void Patterns::update(void) {
+	select_mouse();
+	select_key();
+}
+
 Pattern Patterns::get_pattern(const int idx) const {
 	return this->patterns[idx];
 }
@@ -74,15 +113,6 @@ Pattern Patterns::get_pattern(void) const {
 }
 int Patterns::get_pattern_idx(void) const {
 	return this->selected_idx;
-}
-void Patterns::update(void){
-	for (const std::pair<int, Rect>& p : rect_pairs) {
-		const int idx = p.first;
-		const Rect rect = p.second;
-		if (rect.leftClicked()) {
-			this->selected_idx = idx;
-		}
-	}
 }
 
 
