@@ -19,7 +19,7 @@ public:
 	// 型抜きの一覧描画
 	void draw(void) const;
 	// 型抜きの処理
-	void update(void);
+	void update(bool is_wasd_patterns);
 	// 指定されたindexの型抜きを取得
 	Pattern get_pattern(const int idx) const;
 	// 引数なしで現在選択されている型抜きを選択
@@ -82,27 +82,27 @@ void Patterns::select_mouse(void) {
 }
 void Patterns::select_key(void) {
 	if (this->selected_idx == 0) {
-		if (KeyLeft.down()) this->selected_idx = 22;
-		else if (KeyRight.down()) this->selected_idx = 1;
+		if (KeyA.down()) this->selected_idx = 22;
+		else if (KeyD.down()) this->selected_idx = 1;
 		return;
 	}
-	if (KeyUp.down()) {
+	if (KeyW.down()) {
 		if ((this->selected_idx - 1) % 3 == 0) this->selected_idx += 2;
 		else this->selected_idx--;
-	}else if (KeyDown.down()) {
+	}else if (KeyS.down()) {
 		if (this->selected_idx % 3 == 0) this->selected_idx -= 2;
 		else this->selected_idx++;
-	}else if (KeyLeft.down()) {
+	}else if (KeyA.down()) {
 		if (get_pattern().size() == 2) this->selected_idx = 0;
 		else this->selected_idx -= 3;
-	}else if (KeyRight.down()) {
+	}else if (KeyD.down()) {
 		if (get_pattern().size() == 256) this->selected_idx = 0;
 		else this->selected_idx += 3;
 	}
 }
-void Patterns::update(void) {
+void Patterns::update(bool is_wasd_patterns) {
 	select_mouse();
-	select_key();
+	if(is_wasd_patterns) select_key();
 }
 
 Pattern Patterns::get_pattern(const int idx) const {

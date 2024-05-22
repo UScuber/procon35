@@ -21,13 +21,20 @@ public:
 	int cnt_move = 0;  // 手数カウント
 	Anchor anchor = Anchor::Lefttop;  // 中心軸
 	const Font font{ 50, Typeface::Bold };  // 詳細表示用フォント
+	const Font font_arrows{ 200, Typeface::Bold };  // 詳細表示用フォント
 	DataWriter datawriter;  // 行動ログ保存用
+	bool is_wasd_piece = true;  // wasdキーがピース選択になっているか
+	Point selected_pos{ 0,0 };  // 選択ピースの座標
+	int anchor_icon_size = 50;
+	Texture anchor_icon{0xf13d_icon, anchor_icon_size};
 	//////////////////////////////////////////////////////////////
 	// method
-	virtual Point calc_piece_pos(int row, int col) const = 0;  // ピースの座標計算
-	Point calc_lefttop(const Point& pos) const;  // 中心軸を考慮した左上座標
 	bool is_in_board(const Point& pos) const;  // ボード上に収まっているか
 	bool is_in_board(const int y, const int x) const;
+	virtual Point calc_piece_pos(int row, int col) const = 0;  // ピースの座標計算
+	Point calc_lefttop(void) const;  // 中心軸を考慮した左上座標
+	void set_selected_pos(const Point& pos);  // 選択ピースの座標取得
+	Point get_selected_pos(void) const;  // 選択ピースの座標取得
 	Optional<Point> which_hover(void) const;  // どこのピースがホバーされているかを返す
 	Array<Array<Piece>> get_board(void) const;  // ボードを取得する
 	Piece get_piece(const int y, const int x) const; // 座標を指定してピースを取得する
@@ -35,6 +42,7 @@ public:
 	void save_json(const FilePath& path) const;  // 行動ログのjsonを保存
 	//////////////////////////////////////////////////////////////
 	// update
+	void switch_wasd(void);  // wasdキーの役割変更
 	void change_anchor(void);   // 中心軸を変更
 	void select_piece(void);  // ホバーで選択状態する
 	void move(void);  // 型抜きの移動
@@ -52,13 +60,18 @@ bool Board::is_in_board(const Point& pos) const {
 bool Board::is_in_board(const int y, const int x) const {
 	return (0 <= y and y < this->height and 0 <= x and x < this->width);
 }
-Point Board::calc_lefttop(const Point& pos) const {
-	if (this->anchor == Anchor::Lefttop) return pos;
-	else if (this->anchor == Anchor::Leftbottom) return pos - Point{ 0, this->patterns.get_pattern().size() - 1 };
-	else if (this->anchor == Anchor::Rightbottom) return pos - Point{ this->patterns.get_pattern().front().size() - 1, this->patterns.get_pattern().size() - 1 };
-	else if (this->anchor == Anchor::Righttop) return pos - Point{ this->patterns.get_pattern().front().size() - 1, 0 };
+Point Board::calc_lefttop(void) const{
+	if (this->anchor == Anchor::Lefttop) return this->selected_pos;
+	else if (this->anchor == Anchor::Leftbottom) return  this->selected_pos - Point{ 0, this->patterns.get_pattern().size() - 1 };
+	else if (this->anchor == Anchor::Rightbottom) return  this->selected_pos - Point{ this->patterns.get_pattern().front().size() - 1, this->patterns.get_pattern().size() - 1 };
+	else if (this->anchor == Anchor::Righttop) return this->selected_pos - Point{ this->patterns.get_pattern().front().size() - 1, 0 };
 }
-
+void Board::set_selected_pos(const Point& pos) {
+	this->selected_pos = pos;
+}
+Point Board::get_selected_pos(void) const {
+	return this->selected_pos;
+}
 Optional<Point> Board::which_hover(void) const {
 	const Point mouse_pos = Cursor::Pos();
 	Point res{ 0,0 };
@@ -67,16 +80,60 @@ Optional<Point> Board::which_hover(void) const {
 	if (is_in_board(res)) return res;
 	else return none;
 }
+Array<Array<Piece>> Board::get_board(void) const {
+	return this->board;
+}
+Piece Board::get_piece(const int y, const int x) const {
+	return this->board[y][x];
+}
+void Board::set_piece_size(const int size) {
+	this->piece_size = size;
+}
+void Board::save_json(const FilePath& path) const {
+	this->datawriter.get_json().save(path);
+}
 
-void Board::select_piece(void) {
-	// マウスオーバーされているピースを特定する
-	Optional<Point> piece_mouseover = which_hover();
-	// マウスオーバーされていなかったら終了
-	if (not piece_mouseover.has_value()) {
-		return;
+void Board::switch_wasd(void) {
+	if (KeyShift.down()) {
+		this->is_wasd_piece ^= true;
 	}
-	// 座標を左上に合わせる
-	Point pos = calc_lefttop(piece_mouseover.value());
+}
+void Board::change_anchor(void) {
+	if (KeyQ.down()) {
+		this->anchor = static_cast<Anchor>((static_cast<int>(this->anchor) - 1 + 4) % 4);
+	}
+	else if (KeyE.down()) {
+		this->anchor = static_cast<Anchor>((static_cast<int>(this->anchor) + 1 + 4) % 4);
+	}
+}
+void Board::select_piece(void) {
+	if (is_wasd_piece) {
+		// キー入力によって上下左右に選択座標を動かす
+		Point pos = get_selected_pos();
+		if (KeyW.down()) {
+			if (pos.y == 0) pos.y = this->height - 1;
+			else pos.y--;
+		}else if (KeyS.down()) {
+			if (pos.y == this->height - 1) pos.y = 0;
+			else pos.y++;
+		}else if (KeyA.down()) {
+			if (pos.x == 0) pos.x = this->width - 1;
+			else pos.x--;
+		}else if (KeyD.down()) {
+			if (pos.x == this->width - 1) pos.x = 0;
+			else pos.x++;
+		}
+		set_selected_pos(pos);
+	}else {
+		// マウスオーバーされているピースを特定する
+		Optional<Point> piece_mouseover = which_hover();
+		// マウスオーバーされていたら選択座標を変更
+		if (piece_mouseover.has_value()) {
+			set_selected_pos(piece_mouseover.value());
+		}
+	}
+	// 左上座標を取得
+	Point pos = calc_lefttop();
 	// 抜き型を取得
 	Pattern pattern = patterns.get_pattern();
 	// 選択状態にする
@@ -89,44 +146,16 @@ void Board::select_piece(void) {
 		}
 	}
 }
-
-void Board::change_anchor(void) {
-	if (KeyQ.down()) {
-		this->anchor = static_cast<Anchor>((static_cast<int>(this->anchor) - 1 + 4) % 4);
-	}
-	else if (KeyE.down()) {
-		this->anchor = static_cast<Anchor>((static_cast<int>(this->anchor) + 1 + 4) % 4);
-	}
-}
-
-void Board::save_json(const FilePath& path) const {
-	this->datawriter.get_json().save(path);
-}
-
 void Board::move(void) {
 	// キーボードが押された方向を特定、なければ終了
 	Dir dir;
-	if (KeyW.down()) {
-		dir = Dir::U;
-	}
-	else if (KeyA.down()) {
-		dir = Dir::L;
-	}
-	else if (KeyS.down()) {
-		dir = Dir::D;
-	}
-	else if (KeyD.down()) {
-		dir = Dir::R;
-	}
-	else {
-		return;
-	}
-	// マウスオーバー位置を特定、なければ終了
-	Optional<Point> piece_mouseover = which_hover();
-	if (not piece_mouseover.has_value()) {
-		return;
-	}
-	Point pos = calc_lefttop(piece_mouseover.value());
+	if (KeyUp.down()) dir = Dir::U;
+	else if (KeyLeft.down()) dir = Dir::L;
+	else if (KeyDown.down()) dir = Dir::D;
+	else if (KeyRight.down()) dir = Dir::R;
+	else return;
+	// 左上座標
+	Point pos = calc_lefttop();
 	// ピースの番号だけを抽出
 	Array<Array<int>> board_int(this->height, Array<int>(this->width, -1));
 	for (int row = 0; row < this->height; row++) {
@@ -175,20 +204,24 @@ void Board::draw_details(Board &board) const {
 	}
 	int piece_sum = this->height * this->width;
 	assert(this->height == board.height and this->width == board.width);
-	font(U"手数:{}"_fmt(cnt_move)).drawAt(Vec2{ Scene::Center().x, Scene::Size().y / 5 }, Palette::Black);
-	font(U"不一致数:{}"_fmt(cnt_lack)).drawAt(Vec2{ Scene::Center().x,  Scene::Size().y / 5 * 2 }, Palette::Black);
-	font(U"一致率:{:.0f}%"_fmt((double)(piece_sum - cnt_lack) / (double)piece_sum * 100.0)).drawAt(Vec2{ Scene::Center().x, Scene::Size().y / 5 * 3 }, Palette::Black);
+	font(U"手数:{}"_fmt(cnt_move)).drawAt(Vec2{ Scene::Center().x, Scene::Size().y / 10 }, Palette::Black);
+	font(U"不一致数:{}"_fmt(cnt_lack)).drawAt(Vec2{ Scene::Center().x,  Scene::Size().y / 10 * 2 }, Palette::Black);
+	font(U"一致率:{:.0f}%"_fmt((double)(piece_sum - cnt_lack) / (double)piece_sum * 100.0)).drawAt(Vec2{ Scene::Center().x, Scene::Size().y / 10 * 3 }, Palette::Black);
+	Vec2 anchor_rects{ Scene::Center().x, Scene::Size().y * 2 / 5 };
+	RectF{ Arg::bottomRight(anchor_rects), (double)anchor_icon_size }.drawFrame(5, Palette::Black);
+	RectF{ Arg::topRight(anchor_rects), (double)anchor_icon_size }.drawFrame(5, Palette::Black);
+	RectF{ Arg::topLeft(anchor_rects), (double)anchor_icon_size }.drawFrame(5, Palette::Black);
+	RectF{ Arg::bottomLeft(anchor_rects), (double)anchor_icon_size }.drawFrame(5, Palette::Black);
+	Vec2 anchor_pos = anchor_rects;
+	if (this->anchor == Anchor::Lefttop) anchor_pos += Vec2{ -anchor_icon_size / 2, -anchor_icon_size / 2 };
+	else if (this->anchor == Anchor::Leftbottom) anchor_pos += Vec2{ -anchor_icon_size / 2, anchor_icon_size / 2 };
+	else if(this->anchor == Anchor::Rightbottom) anchor_pos += Vec2{ anchor_icon_size / 2, anchor_icon_size / 2 };
+	else if (this->anchor == Anchor::Righttop) anchor_pos += Vec2{ anchor_icon_size / 2, -anchor_icon_size / 2 };
+	anchor_icon.scaled(0.8).drawAt(anchor_pos, Palette::Black);
+	String arrows = (is_wasd_piece) ? U"↑↑↑↑↑" : U"↓↓↓↓↓";
+	font_arrows(arrows).drawBaseAt(Vec2{ Scene::Center().x, Scene::Size().y * 3.75 / 5 }, (is_wasd_piece) ? Palette::Blue : Palette::Red);
 }
 
-Array<Array<Piece>> Board::get_board(void) const {
-	return this->board;
-}
-Piece Board::get_piece(const int y, const int x) const {
-	return this->board[y][x];
-}
-void Board::set_piece_size(const int size) {
-	this->piece_size = size;
-}
 
 
 class BoardOperate : public Board {
@@ -221,8 +254,9 @@ BoardOperate::BoardOperate(const Array<Array<Piece>>& board) {
 	}
 }
 void BoardOperate::update(void) {
+	switch_wasd();
 	change_anchor();
-	patterns.update();
+	patterns.update(not this->is_wasd_piece);
 	select_piece();
 	move();
 }
