@@ -21,11 +21,11 @@ public:
 	int cnt_move = 0;  // 手数カウント
 	Anchor anchor = Anchor::Lefttop;  // 中心軸
 	const Font font{ 50, Typeface::Bold };  // 詳細表示用フォント
-	const Font font_arrows{ 200, Typeface::Bold };  // 詳細表示用フォント
+	const Font font_arrows{ 100, Typeface::Bold };  // 詳細表示用フォント
 	DataWriter datawriter;  // 行動ログ保存用
 	bool is_wasd_piece = true;  // wasdキーがピース選択になっているか
 	Point selected_pos{ 0,0 };  // 選択ピースの座標
-	int anchor_icon_size = 50;
+	int anchor_icon_size = Scene::Size().y / 20;
 	Texture anchor_icon{0xf13d_icon, anchor_icon_size};
 	//////////////////////////////////////////////////////////////
 	// method
