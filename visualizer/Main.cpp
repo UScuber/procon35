@@ -30,7 +30,29 @@ void ManualScene::draw(void) const {
 	this->board_operator.draw(this->board_example);
 }
 
-
+class AutoScene : public App::Scene {
+private:
+	BoardExample board_example;
+	BoardAuto board_auto;
+public:
+	AutoScene(const InitData& init);
+	void update(void) override;
+	void draw(void) const override;
+};
+AutoScene::AutoScene(const InitData& init) : IScene{ init } {
+	Optional<FilePath> path = Dialog::OpenFile({ FileFilter::Text() });
+	if (not path) return;
+	this->board_example.initialize(path.value());
+	this->board_auto.initialize(this->board_example.get_board());
+}
+void AutoScene::update(void) {
+	this->board_example.update(this->board_auto);
+	this->board_auto.update();
+}
+void AutoScene::draw(void) const {
+	this->board_example.draw();
+	this->board_auto.draw(this->board_example);
+}
 
 class SelectScene : public App::Scene {
 public:
@@ -39,8 +61,11 @@ public:
 	void draw(void) const override;
 };
 void SelectScene::update(void) {
-	if (SimpleGUI::ButtonAt(U"手動", Scene::CenterF())) {
+	if (SimpleGUI::ButtonAt(U"手動", Scene::CenterF()*0.9)) {
 		changeScene(U"ManualScene");
+	}
+	if (SimpleGUI::ButtonAt(U"自動", Scene::CenterF() * 1.1)) {
+		changeScene(U"AutoScene");
 	}
 }
 void SelectScene::draw(void)const {
@@ -56,6 +81,7 @@ void Main() {
 	App manager;
 	manager.add<SelectScene>(U"SelectScene");
 	manager.add<ManualScene>(U"ManualScene");
+	manager.add<AutoScene>(U"AutoScene");
 
 	while (System::Update()) {
 		if (not manager.update()) {

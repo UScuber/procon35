@@ -312,3 +312,68 @@ void BoardExample::draw(void) const {
 	draw_board();
 	draw_selected();
 }
+
+class BoardAuto : public Board {
+private:
+	Point calc_piece_pos(int row, int col) const override;
+	ChildProcess child;
+	
+public:
+	void initialize(const Array<Array<Piece>>& board);
+	BoardAuto(void) {};
+	void update(void);
+	void draw(const Board& board) const;
+};
+Point BoardAuto::calc_piece_pos(int row, int col) const {
+	return Point{ col * this->piece_size, row * this->piece_size };
+}
+void BoardAuto::initialize(const Array<Array<Piece>>& board) {
+	this->child = ChildProcess{ U"./solver.exe", Pipe::StdInOut };
+	if (not child) throw Error{ U"Failed to create a process" };
+	this->height = board.size();
+	this->width = board.front().size();
+	this->board.resize(height, Array<Piece>(width));
+	this->is_selected.resize(height, Array<bool>(width, false));
+	Array<int> tmp;
+	for (int i = 0; i < height * width; i++) {
+		tmp << board[i / width][i % width].get_number();
+	}
+	tmp.shuffle();
+	for (int row = 0; row < this->height; row++) {
+		for (int col = 0; col < this->width; col++) {
+			int num = tmp[row * this->height + col];
+			this->board[row][col].set_number(num);
+			this->board[row][col].set_square(calc_piece_pos(row, col), this->piece_size);
+		}
+	}
+	// プロセスに入力を与える
+	this->child.ostream() << this->height << std::endl << this->width << std::endl;
+	for (int row = 0; row < this->height; row++) {
+		String input = U"";
+		for (int col = 0; col < this->width; col++) {
+			input += Format(this->get_piece(row, col).get_number());
+		}
+		this->child.ostream() << input.narrow() << std::endl;
+	}
+	for (int row = 0; row < this->height; row++) {
+		String input = U"";
+		for (int col = 0; col < this->width; col++) {
+			input += Format(board[row][col].get_number());
+		}
+		this->child.ostream() << input.narrow() << std::endl;
+	}
+	int p, x, y, s;
+	this->child.istream() >> p >> x >> y >> s;
+	this->datawriter.add_op(p, Point{ x,y }, (Dir)s);
+}
+
+void BoardAuto::update(void) {
+	move();
+}
+void BoardAuto::draw(const Board& board) const {
+	draw_board();
+	draw_details(board);
+}
+
+
+
