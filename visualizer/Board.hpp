@@ -50,7 +50,7 @@ public:
 	// draw
 	void draw_board(void) const;  // ピース群の描画
 	void draw_selected(void) const;  // 選択されているピースを黒く表示
-	void draw_details(Board &board) const;  // 詳細表示
+	void draw_details(const Board &board) const;  // 詳細表示
 };
 
 
@@ -193,7 +193,7 @@ void Board::draw_selected(void) const {
 		}
 	}
 }
-void Board::draw_details(Board &board) const {
+void Board::draw_details(const Board &board) const {
 	int cnt_lack = 0;
 	for (int row = 0; row < this->height; row++) {
 		for (int col = 0; col < this->width; col++) {
@@ -228,14 +228,15 @@ class BoardOperate : public Board {
 private:
 	Point calc_piece_pos(int row, int col) const override;
 public:
-	BoardOperate(const Array<Array<Piece>>& board);
+	void initialize(const Array<Array<Piece>>& board);
+	BoardOperate(void) {};
 	void update(void);
-	void draw(Board& board) const;
+	void draw(const Board& board) const;
 };
 Point BoardOperate::calc_piece_pos(int row, int col) const {
 	return Point{ col * this->piece_size, row * this->piece_size };
 }
-BoardOperate::BoardOperate(const Array<Array<Piece>>& board) {
+void BoardOperate::initialize(const Array<Array<Piece>>& board) {
 	this->height = board.size();
 	this->width = board.front().size();
 	this->board.resize(height, Array<Piece>(width));
@@ -260,7 +261,7 @@ void BoardOperate::update(void) {
 	select_piece();
 	move();
 }
-void BoardOperate::draw(Board& board) const {
+void BoardOperate::draw(const Board& board) const {
 	patterns.draw();
 	draw_board();
 	draw_selected();
@@ -272,14 +273,15 @@ class BoardExample : public Board {
 private:
 	Point calc_piece_pos(int row, int col) const override;
 public:
-	BoardExample(FilePath& path);
-	void update(Board& board);
+	void initialize(const FilePath& path);
+	BoardExample(void) {};
+	void update(Board & board);
 	void draw(void) const;
 };
 Point BoardExample::calc_piece_pos(int row, int col) const {
 	return Point{ Scene::Size().x - this->width * piece_size + col * this->piece_size, row * this->piece_size };
 }
-BoardExample::BoardExample(FilePath& path) {
+void BoardExample::initialize(const FilePath& path) {
 	TextReader reader{ path };
 	if (not reader) throw Error{ U"failed to open {}"_fmt(path) };
 	String line;

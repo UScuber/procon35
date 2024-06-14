@@ -1,5 +1,8 @@
-﻿# include <Siv3D.hpp>
+﻿#pragma once
+# include <Siv3D.hpp>
 # include "Slide.hpp"
+
+using App = SceneManager<String>;
 
 class DataWriter {
 private:
