@@ -2,6 +2,7 @@
 #include <vector>
 #include <algorithm>
 #include <cassert>
+#include <tuple>
 using namespace std;
 
 enum class Dir {
