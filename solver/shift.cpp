@@ -3,10 +3,11 @@
 #include <algorithm>
 #include <cassert>
 #include <tuple>
+
 using namespace std;
 
 enum class Dir {
-  U,L,D,R,
+  U,D,L,R,
 };
 
 vector<vector<vector<int>>> cutting_dies; // 抜き型
@@ -333,7 +334,7 @@ int main(){
   // print_state(state_start);
   vector<vector<int>> state_now = state_start;
   for(auto [s, x, y, d] : ops){
-    cout << s << " " << x << " " << y << " " << (int)d << "\n";
+    cout << s << flush << ' ' << x << flush << ' ' << y << flush << ' ' << (int)d << endl;
     state_now = slide(state_now, s, x, y, d);
     // print_state(state_now);
   }
