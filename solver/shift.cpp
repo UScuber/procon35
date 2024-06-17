@@ -333,9 +333,9 @@ int main(){
   // cout << "start : \n";
   // print_state(state_start);
   vector<vector<int>> state_now = state_start;
-  for(auto [s, x, y, d] : ops){
-    cout << s << flush << ' ' << x << flush << ' ' << y << flush << ' ' << (int)d << endl;
-    state_now = slide(state_now, s, x, y, d);
+  for(auto [s, y, x, d] : ops){
+    cout << s << flush << ' ' << y << flush << ' ' << x << flush << ' ' << (int)d << endl;
+    state_now = slide(state_now, s, y, x, d);
     // print_state(state_now);
   }
   // cout << "expect : \n";
