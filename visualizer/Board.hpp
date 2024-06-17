@@ -46,6 +46,8 @@ public:
 	void change_anchor(void);   // 中心軸を変更
 	void select_piece(void);  // ホバーで選択状態する
 	void move(void);  // 型抜きの移動
+	void move(int p, int x, int y, Dir dir, bool enable_json);  // 指定して移動
+	void move(int p, const Point& pos, Dir dir, bool enable_json);
 	//////////////////////////////////////////////////////////////
 	// draw
 	void draw_board(void) const;  // ピース群の描画
@@ -156,6 +158,12 @@ void Board::move(void) {
 	else return;
 	// 左上座標
 	Point pos = calc_lefttop();
+	this->move(this->patterns.get_pattern_idx(), pos.x, pos.y, dir, true);
+}
+void Board::move(int p, int x, int y, Dir dir, bool enable_json){
+	this->move(p, Point{ x,y }, dir, enable_json);
+}
+void Board::move(int p, const Point& pos, Dir dir, bool enable_json) {
 	// ピースの番号だけを抽出
 	Array<Array<int>> board_int(this->height, Array<int>(this->width, -1));
 	for (int row = 0; row < this->height; row++) {
@@ -164,8 +172,7 @@ void Board::move(void) {
 		}
 	}
 	// スライドさせる
-	Array<Array<int>> slided = slide(board_int, this->patterns.get_pattern(), pos, dir);
-	Array<int> tmp(4, 0);
+	Array<Array<int>> slided = slide(board_int, this->patterns.get_pattern(p), pos, dir);
 	// スライド後の番号をピースに適用
 	for (int row = 0; row < this->height; row++) {
 		for (int col = 0; col < this->width; col++) {
@@ -174,7 +181,7 @@ void Board::move(void) {
 	}
 	this->cnt_move++;
 	// 行動ログを追加
-	this->datawriter.add_op(patterns.get_pattern_idx(), pos, dir);
+	if(enable_json) this->datawriter.add_op(patterns.get_pattern_idx(), pos, dir);
 }
 
 void Board::draw_board(void) const {
@@ -207,19 +214,6 @@ void Board::draw_details(const Board &board) const {
 	font(U"手数:{}"_fmt(cnt_move)).drawAt(Vec2{ Scene::Center().x, Scene::Size().y / 10 }, Palette::Black);
 	font(U"不一致数:{}"_fmt(cnt_lack)).drawAt(Vec2{ Scene::Center().x,  Scene::Size().y / 10 * 2 }, Palette::Black);
 	font(U"一致率:{:.0f}%"_fmt((double)(piece_sum - cnt_lack) / (double)piece_sum * 100.0)).drawAt(Vec2{ Scene::Center().x, Scene::Size().y / 10 * 3 }, Palette::Black);
-	Vec2 anchor_rects{ Scene::Center().x, Scene::Size().y * 2 / 5 };
-	RectF{ Arg::bottomRight(anchor_rects), (double)anchor_icon_size }.drawFrame(5, Palette::Black);
-	RectF{ Arg::topRight(anchor_rects), (double)anchor_icon_size }.drawFrame(5, Palette::Black);
-	RectF{ Arg::topLeft(anchor_rects), (double)anchor_icon_size }.drawFrame(5, Palette::Black);
-	RectF{ Arg::bottomLeft(anchor_rects), (double)anchor_icon_size }.drawFrame(5, Palette::Black);
-	Vec2 anchor_pos = anchor_rects;
-	if (this->anchor == Anchor::Lefttop) anchor_pos += Vec2{ -anchor_icon_size / 2, -anchor_icon_size / 2 };
-	else if (this->anchor == Anchor::Leftbottom) anchor_pos += Vec2{ -anchor_icon_size / 2, anchor_icon_size / 2 };
-	else if(this->anchor == Anchor::Rightbottom) anchor_pos += Vec2{ anchor_icon_size / 2, anchor_icon_size / 2 };
-	else if (this->anchor == Anchor::Righttop) anchor_pos += Vec2{ anchor_icon_size / 2, -anchor_icon_size / 2 };
-	anchor_icon.scaled(0.8).drawAt(anchor_pos, Palette::Black);
-	String arrows = (is_wasd_piece) ? U"↑↑↑↑↑" : U"↓↓↓↓↓";
-	font_arrows(arrows).drawBaseAt(Vec2{ Scene::Center().x, Scene::Size().y * 3.75 / 5 }, (is_wasd_piece) ? Palette::Blue : Palette::Red);
 }
 
 
@@ -262,6 +256,19 @@ void BoardOperate::update(void) {
 	move();
 }
 void BoardOperate::draw(const Board& board) const {
+	Vec2 anchor_rects{ Scene::Center().x, Scene::Size().y * 2 / 5 };
+	RectF{ Arg::bottomRight(anchor_rects), (double)anchor_icon_size }.drawFrame(5, Palette::Black);
+	RectF{ Arg::topRight(anchor_rects), (double)anchor_icon_size }.drawFrame(5, Palette::Black);
+	RectF{ Arg::topLeft(anchor_rects), (double)anchor_icon_size }.drawFrame(5, Palette::Black);
+	RectF{ Arg::bottomLeft(anchor_rects), (double)anchor_icon_size }.drawFrame(5, Palette::Black);
+	Vec2 anchor_pos = anchor_rects;
+	if (this->anchor == Anchor::Lefttop) anchor_pos += Vec2{ -anchor_icon_size / 2, -anchor_icon_size / 2 };
+	else if (this->anchor == Anchor::Leftbottom) anchor_pos += Vec2{ -anchor_icon_size / 2, anchor_icon_size / 2 };
+	else if (this->anchor == Anchor::Rightbottom) anchor_pos += Vec2{ anchor_icon_size / 2, anchor_icon_size / 2 };
+	else if (this->anchor == Anchor::Righttop) anchor_pos += Vec2{ anchor_icon_size / 2, -anchor_icon_size / 2 };
+	anchor_icon.scaled(0.8).drawAt(anchor_pos, Palette::Black);
+	String arrows = (is_wasd_piece) ? U"↑↑↑↑↑" : U"↓↓↓↓↓";
+	font_arrows(arrows).drawBaseAt(Vec2{ Scene::Center().x, Scene::Size().y * 3.75 / 5 }, (is_wasd_piece) ? Palette::Blue : Palette::Red);
 	patterns.draw();
 	draw_board();
 	draw_selected();
@@ -317,7 +324,12 @@ class BoardAuto : public Board {
 private:
 	Point calc_piece_pos(int row, int col) const override;
 	ChildProcess child;
-	
+	Array<Array<int>> board_origin;
+	int ops_idx = 0;
+	int turn_ms;
+	Stopwatch stopwatch;
+	void update_board(void);
+	void update_gui(void);
 public:
 	void initialize(const Array<Array<Piece>>& board);
 	BoardAuto(void) {};
@@ -333,6 +345,7 @@ void BoardAuto::initialize(const Array<Array<Piece>>& board) {
 	this->height = board.size();
 	this->width = board.front().size();
 	this->board.resize(height, Array<Piece>(width));
+	this->board_origin.resize(height, Array<int>(width));
 	this->is_selected.resize(height, Array<bool>(width, false));
 	Array<int> tmp;
 	for (int i = 0; i < height * width; i++) {
@@ -344,6 +357,11 @@ void BoardAuto::initialize(const Array<Array<Piece>>& board) {
 			int num = tmp[row * this->height + col];
 			this->board[row][col].set_number(num);
 			this->board[row][col].set_square(calc_piece_pos(row, col), this->piece_size);
+		}
+	}
+	for (int row = 0; row < this->height; row++) {
+		for (int col = 0; col < this->width; col++) {
+			this->board_origin[row][col] = this->board[row][col].get_number();
 		}
 	}
 	// プロセスに入力を与える
@@ -362,13 +380,53 @@ void BoardAuto::initialize(const Array<Array<Piece>>& board) {
 		}
 		this->child.ostream() << input.narrow() << std::endl;
 	}
-	int p, x, y, s;
-	this->child.istream() >> p >> x >> y >> s;
-	this->datawriter.add_op(p, Point{ x,y }, (Dir)s);
+	int n,  p, x, y, s;
+	this->child.istream() >> n;
+	for (int i = 0; i < n; i++) {
+		this->child.istream() >> p >> y >> x >> s;
+		this->datawriter.add_op(p, Point{ x,y }, (Dir)s);
+	}
+	this->datawriter.get_json().save(U"./tmp.json");
+}
+
+void BoardAuto::update_board(void) {
+	if (ops_idx >= this->datawriter.get_json()[U"n"].get<int>()) return;
+	if (not this->stopwatch.isRunning()) {
+		stopwatch.start();
+	}
+	else {
+		if (stopwatch.ms() >= this->turn_ms) {
+			int p, x, y, s;
+			p = this->datawriter.get_json()[U"ops"][ops_idx][U"p"].get<int>();
+			x = this->datawriter.get_json()[U"ops"][ops_idx][U"x"].get<int>();
+			y = this->datawriter.get_json()[U"ops"][ops_idx][U"y"].get<int>();
+			s = this->datawriter.get_json()[U"ops"][ops_idx][U"s"].get<int>();
+			ops_idx++;
+			move(p, x, y, (Dir)s, false);
+			//Console << U"p:{}, x:{}, y:{}, s:{}"_fmt(p, x, y, s);
+			stopwatch.restart();
+		}
+	}
+}
+
+void BoardAuto::update_gui(void) {
+	static double slider_value_tmp = 1.0;
+	SimpleGUI::SliderAt(U"{}ms"_fmt(this->turn_ms), slider_value_tmp, 0.001, 1.000, Vec2{ Scene::Center().x, Scene::Size().y * 0.85 }, 80, Scene::Size().x * 0.8);
+	this->turn_ms = slider_value_tmp * 1000.0;
+	if (SimpleGUI::Button(U"restart", Scene::Size() * 0.9)) {
+		for (int row = 0; row < this->height; row++) {
+			for (int col = 0; col < this->width; col++) {
+				this->board[row][col].set_number(this->board_origin[row][col]);
+			}
+		}
+		this->ops_idx = 0;
+		this->cnt_move = 0;
+	}
 }
 
 void BoardAuto::update(void) {
-	move();
+	update_gui();
+	update_board();
 }
 void BoardAuto::draw(const Board& board) const {
 	draw_board();

@@ -15,7 +15,7 @@ public:
 };
 DataWriter::DataWriter(void) {
 	json[U"n"] = 0;
-	json[U"ops"] = Array<bool>(0);
+	json[U"ops"] = Array<JSON>(0);
 }
 void DataWriter::add_op(const int pattern_idx, const Point& pos, const Dir dir) {
 	JSON tmp;
