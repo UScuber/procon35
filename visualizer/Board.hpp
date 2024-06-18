@@ -106,10 +106,9 @@ void Board::save_json(const FilePath& path) const {
 void Board::set_piece_colors(void) {
 	JSON color_json = JSON::Load(U"./pieceColors.json");
 	if (not color_json) throw Error{ U"cannot open pieceColors.json" };
-	this->piece_colors[0] = color_json[U"pieceColor0"].get<HSV>();
-	this->piece_colors[1] = color_json[U"pieceColor1"].get<HSV>();
-	this->piece_colors[2] = color_json[U"pieceColor2"].get<HSV>();
-	this->piece_colors[3] = color_json[U"pieceColor3"].get<HSV>();
+	for (int i = 0; i < 4; i++) {
+		piece_colors[i] = color_json[U"pieceColors"][i].get<Color>();
+	}
 }
 
 void Board::switch_wasd(void) {
