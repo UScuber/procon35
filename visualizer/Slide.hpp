@@ -1,6 +1,5 @@
 ﻿# pragma once
 # include <Siv3D.hpp>
-# include "Piece.hpp"
 # include "Patterns.hpp"
 
 enum class Dir {

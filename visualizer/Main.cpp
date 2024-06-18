@@ -22,6 +22,7 @@ ManualScene::~ManualScene(void) {
 	this->board_operator.save_json(U"./answer.json");
 }
 void ManualScene::update(void) {
+	if (KeyP.down()) changeScene(U"SelectScene");
 	this->board_example.update(this->board_operator);
 	this->board_operator.update();
 }
@@ -46,6 +47,7 @@ AutoScene::AutoScene(const InitData& init) : IScene{ init } {
 	this->board_auto.initialize(this->board_example.get_board());
 }
 void AutoScene::update(void) {
+	if (KeyP.down()) changeScene(U"SelectScene");
 	this->board_example.update(this->board_auto);
 	this->board_auto.update();
 }

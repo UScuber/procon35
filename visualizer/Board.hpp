@@ -1,6 +1,5 @@
 ﻿# pragma once
 # include <Siv3D.hpp>
-# include "Piece.hpp"
 # include "Patterns.hpp"
 # include "Slide.hpp"
 # include "Data.hpp"
@@ -15,8 +14,9 @@ public:
 	// field
 	int height, width;	  // ボードの縦横
 	int piece_size = 15;	 // 一つのピースの描画サイズ
-	Array<Array<Piece>> board;  // 2次元配列のボードz
+	Array<Array<int>> board;  // 2次元配列のボードz
 	Patterns patterns;  // 型抜きの配列
+	Array<Color> piece_colors = {Palette::Red, Palette::Green, Palette::Blue, Palette::Black};
 	Array<Array<bool>> is_selected;  // ボード上のピースが選択されてるか
 	int cnt_move = 0;  // 手数カウント
 	Anchor anchor = Anchor::Lefttop;  // 中心軸
@@ -25,8 +25,8 @@ public:
 	DataWriter datawriter;  // 行動ログ保存用
 	bool is_wasd_piece = true;  // wasdキーがピース選択になっているか
 	Point selected_pos{ 0,0 };  // 選択ピースの座標
-	int anchor_icon_size = Scene::Size().y / 20;
-	Texture anchor_icon{0xf13d_icon, anchor_icon_size};
+	int anchor_icon_size = Scene::Size().y / 20;  // 錨アイコンの大きさ
+	Texture anchor_icon{0xf13d_icon, anchor_icon_size};  // 錨アイコン
 	//////////////////////////////////////////////////////////////
 	// method
 	bool is_in_board(const Point& pos) const;  // ボード上に収まっているか
@@ -36,10 +36,13 @@ public:
 	void set_selected_pos(const Point& pos);  // 選択ピースの座標取得
 	Point get_selected_pos(void) const;  // 選択ピースの座標取得
 	Optional<Point> which_hover(void) const;  // どこのピースがホバーされているかを返す
-	Array<Array<Piece>> get_board(void) const;  // ボードを取得する
-	Piece get_piece(const int y, const int x) const; // 座標を指定してピースを取得する
+	Array<Array<int>> get_board(void) const;  // ボードを取得する
+	int get_piece(const int y, const int x) const; // 座標を指定してピースを取得する
+	void set_piece(const int num, const int y, const int x);  // 座標を指定してピースをセット
+	Color get_piece_color(const int num) const;  // ピースの番号から色を取得する
 	void set_piece_size(const int size);  // ピースサイズを設定
 	void save_json(const FilePath& path) const;  // 行動ログのjsonを保存
+	void set_piece_colors(void);
 	//////////////////////////////////////////////////////////////
 	// update
 	void switch_wasd(void);  // wasdキーの役割変更
@@ -82,17 +85,31 @@ Optional<Point> Board::which_hover(void) const {
 	if (is_in_board(res)) return res;
 	else return none;
 }
-Array<Array<Piece>> Board::get_board(void) const {
+Array<Array<int>> Board::get_board(void) const {
 	return this->board;
 }
-Piece Board::get_piece(const int y, const int x) const {
+int Board::get_piece(const int y, const int x) const {
 	return this->board[y][x];
+}
+void Board::set_piece(const int num, const int y, const int x) {
+	this->board[y][x] = num;
+}
+Color Board::get_piece_color(const int num) const{
+	return this->piece_colors[num];
 }
 void Board::set_piece_size(const int size) {
 	this->piece_size = size;
 }
 void Board::save_json(const FilePath& path) const {
 	this->datawriter.get_json().save(path);
+}
+void Board::set_piece_colors(void) {
+	JSON color_json = JSON::Load(U"./pieceColors.json");
+	if (not color_json) throw Error{ U"cannot open pieceColors.json" };
+	this->piece_colors[0] = color_json[U"pieceColor0"].get<HSV>();
+	this->piece_colors[1] = color_json[U"pieceColor1"].get<HSV>();
+	this->piece_colors[2] = color_json[U"pieceColor2"].get<HSV>();
+	this->piece_colors[3] = color_json[U"pieceColor3"].get<HSV>();
 }
 
 void Board::switch_wasd(void) {
@@ -164,19 +181,12 @@ void Board::move(int p, int x, int y, Dir dir, bool enable_json){
 	this->move(p, Point{ x,y }, dir, enable_json);
 }
 void Board::move(int p, const Point& pos, Dir dir, bool enable_json) {
-	// ピースの番号だけを抽出
-	Array<Array<int>> board_int(this->height, Array<int>(this->width, -1));
-	for (int row = 0; row < this->height; row++) {
-		for (int col = 0; col < this->width; col++) {
-			board_int[row][col] = this->board[row][col].get_number();
-		}
-	}
 	// スライドさせる
-	Array<Array<int>> slided = slide(board_int, this->patterns.get_pattern(p), pos, dir);
+	Array<Array<int>> slided = slide(get_board(), this->patterns.get_pattern(p), pos, dir);
 	// スライド後の番号をピースに適用
 	for (int row = 0; row < this->height; row++) {
 		for (int col = 0; col < this->width; col++) {
-			this->board[row][col].set_number(slided[row][col]);
+			this->board[row][col] = slided[row][col];
 		}
 	}
 	this->cnt_move++;
@@ -185,9 +195,9 @@ void Board::move(int p, const Point& pos, Dir dir, bool enable_json) {
 }
 
 void Board::draw_board(void) const {
-	for (const Array<Piece>& ary : this->board) {
-		for (const Piece& piece : ary) {
-			piece.draw();
+	for (int row = 0; row < this->height; row++) {
+		for (int col = 0; col < this->width; col++) {
+			RectF{ calc_piece_pos(row, col), this->piece_size }.draw(get_piece_color(get_piece(row, col)));
 		}
 	}
 }
@@ -195,7 +205,7 @@ void Board::draw_selected(void) const {
 	for (int row = 0; row < this->height; row++) {
 		for (int col = 0; col < this->width; col++) {
 			if (is_selected[row][col]) {
-				board[row][col].get_square().draw(ColorF{ 0.0, 0.5 });
+				RectF{ calc_piece_pos(row, col), this->piece_size }.draw(ColorF{ 0.0, 0.5 });
 			}
 		}
 	}
@@ -204,7 +214,7 @@ void Board::draw_details(const Board &board) const {
 	int cnt_lack = 0;
 	for (int row = 0; row < this->height; row++) {
 		for (int col = 0; col < this->width; col++) {
-			if (this->board[row][col].get_number() != board.get_piece(row, col).get_number()) {
+			if (this->board[row][col] != board.get_piece(row, col)) {
 				cnt_lack++;
 			}
 		}
@@ -222,7 +232,7 @@ class BoardOperate : public Board {
 private:
 	Point calc_piece_pos(int row, int col) const override;
 public:
-	void initialize(const Array<Array<Piece>>& board);
+	void initialize(const Array<Array<int>>& board);
 	BoardOperate(void) {};
 	void update(void);
 	void draw(const Board& board) const;
@@ -230,21 +240,21 @@ public:
 Point BoardOperate::calc_piece_pos(int row, int col) const {
 	return Point{ col * this->piece_size, row * this->piece_size };
 }
-void BoardOperate::initialize(const Array<Array<Piece>>& board) {
+void BoardOperate::initialize(const Array<Array<int>>& board) {
+	set_piece_colors();
 	this->height = board.size();
 	this->width = board.front().size();
-	this->board.resize(height, Array<Piece>(width));
+	this->board.resize(height, Array<int>(width));
 	this->is_selected.resize(height, Array<bool>(width, false));
 	Array<int> tmp;
 	for (int i = 0; i < height * width; i++) {
-		tmp << board[i / width][i % width].get_number();
+		tmp << board[i / width][i % width];
 	}
 	tmp.shuffle();
 	for (int row = 0; row < this->height; row++) {
 		for (int col = 0; col < this->width; col++) {
 			int num = tmp[row * this->height + col];
-			this->board[row][col].set_number(num);
-			this->board[row][col].set_square(calc_piece_pos(row, col), this->piece_size);
+			set_piece(num, row, col);
 		}
 	}
 }
@@ -289,6 +299,7 @@ Point BoardExample::calc_piece_pos(int row, int col) const {
 	return Point{ Scene::Size().x - this->width * piece_size + col * this->piece_size, row * this->piece_size };
 }
 void BoardExample::initialize(const FilePath& path) {
+	set_piece_colors();
 	TextReader reader{ path };
 	if (not reader) throw Error{ U"failed to open {}"_fmt(path) };
 	String line;
@@ -302,11 +313,10 @@ void BoardExample::initialize(const FilePath& path) {
 	}
 	this->height = tmp.size();
 	this->width = tmp.front().size();
-	this->board.resize(height, Array<Piece>(width));
+	this->board.resize(height, Array<int>(width));
 	for (int row = 0; row < this->height; row++) {
 		for (int col = 0; col < this->width; col++) {
-			this->board[row][col].set_number(tmp[row][col]);
-			this->board[row][col].set_square(calc_piece_pos(row, col), this->piece_size);
+			set_piece(tmp[row][col], row, col);
 		}
 	}
 	this->is_selected.resize(height, Array<bool>(width, false));
@@ -331,7 +341,7 @@ private:
 	void update_board(void);
 	void update_gui(void);
 public:
-	void initialize(const Array<Array<Piece>>& board);
+	void initialize(const Array<Array<int>>& board);
 	BoardAuto(void) {};
 	void update(void);
 	void draw(const Board& board) const;
@@ -339,29 +349,29 @@ public:
 Point BoardAuto::calc_piece_pos(int row, int col) const {
 	return Point{ col * this->piece_size, row * this->piece_size };
 }
-void BoardAuto::initialize(const Array<Array<Piece>>& board) {
+void BoardAuto::initialize(const Array<Array<int>>& board) {
+	set_piece_colors();
 	this->child = ChildProcess{ U"./solver.exe", Pipe::StdInOut };
 	if (not child) throw Error{ U"Failed to create a process" };
 	this->height = board.size();
 	this->width = board.front().size();
-	this->board.resize(height, Array<Piece>(width));
+	this->board.resize(height, Array<int>(width));
 	this->board_origin.resize(height, Array<int>(width));
 	this->is_selected.resize(height, Array<bool>(width, false));
 	Array<int> tmp;
 	for (int i = 0; i < height * width; i++) {
-		tmp << board[i / width][i % width].get_number();
+		tmp << board[i / width][i % width];
 	}
 	tmp.shuffle();
 	for (int row = 0; row < this->height; row++) {
 		for (int col = 0; col < this->width; col++) {
 			int num = tmp[row * this->height + col];
-			this->board[row][col].set_number(num);
-			this->board[row][col].set_square(calc_piece_pos(row, col), this->piece_size);
+			set_piece(num, row, col);
 		}
 	}
 	for (int row = 0; row < this->height; row++) {
 		for (int col = 0; col < this->width; col++) {
-			this->board_origin[row][col] = this->board[row][col].get_number();
+			this->board_origin[row][col] =  get_piece(row, col);
 		}
 	}
 	// プロセスに入力を与える
@@ -369,14 +379,14 @@ void BoardAuto::initialize(const Array<Array<Piece>>& board) {
 	for (int row = 0; row < this->height; row++) {
 		String input = U"";
 		for (int col = 0; col < this->width; col++) {
-			input += Format(this->get_piece(row, col).get_number());
+			input += Format(this->get_piece(row, col));
 		}
 		this->child.ostream() << input.narrow() << std::endl;
 	}
 	for (int row = 0; row < this->height; row++) {
 		String input = U"";
 		for (int col = 0; col < this->width; col++) {
-			input += Format(board[row][col].get_number());
+			input += Format(board[row][col]);
 		}
 		this->child.ostream() << input.narrow() << std::endl;
 	}
@@ -416,7 +426,8 @@ void BoardAuto::update_gui(void) {
 	if (SimpleGUI::Button(U"restart", Scene::Size() * 0.9)) {
 		for (int row = 0; row < this->height; row++) {
 			for (int col = 0; col < this->width; col++) {
-				this->board[row][col].set_number(this->board_origin[row][col]);
+				int num = this->board_origin[row][col];
+				set_piece(num, row, col);
 			}
 		}
 		this->ops_idx = 0;

@@ -29,3 +29,24 @@ void DataWriter::add_op(const int pattern_idx, const Point& pos, const Dir dir) 
 JSON DataWriter::get_json(void) const {
 	return this->json;
 }
+
+class DataLoader {
+private:
+	Array<Color> piece_colors;
+public:
+	DataLoader(void);
+	Color get_piece_color(int idx) const;
+};
+
+DataLoader::DataLoader(void) {
+	JSON json = JSON::Load(U"./pieceColors.json");
+	this->piece_colors << json[U"pieceColor1"].get<HSV>();
+	this->piece_colors << json[U"pieceColor2"].get<HSV>();
+	this->piece_colors << json[U"pieceColor3"].get<HSV>();
+	this->piece_colors << json[U"pieceColor4"].get<HSV>();
+}
+Color DataLoader::get_piece_color(int idx) const {
+	assert(0 <= idx and idx < 4);
+	return this->piece_colors[idx];
+}
+
