@@ -1,7 +1,9 @@
 import cv2
 import numpy as np
+import json
 
-H, W = 100, 100
+
+H, W = 32, 32
 K = 4
 
 image_pre = cv2.imread("images/image.jpg")
@@ -29,14 +31,17 @@ result = cv2.merge((r, g, b, a))
 # 結果の出力
 cv2.imwrite("result.jpg", result)
 
-with open("input.txt", "w") as f:
-  f.write(f"{H} {W}\n")
-  for i in range(K):
-    f.write(f"{center[i][0]} {center[i][1]} {center[i][2]}\n")
-  
+with open("input.txt", "w") as f:  
   board = label.flatten().reshape((W, H))
   for i in range(H):
     s = ""
     for j in range(W):
       s += str(board[i, j])
     f.write(s + "\n")
+
+with open("color.json", "w") as f:
+  d = {}
+  d["pieceColors"] = []
+  for i in range(K):
+    d["pieceColors"].append(f"({center[i][0]}, {center[i][1]}, {center[i][2]}, 255)")
+  f.write(json.dumps(d, indent=2))
