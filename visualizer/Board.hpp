@@ -13,7 +13,7 @@ public:
 	//////////////////////////////////////////////////////////////
 	// field
 	int height, width;	  // ボードの縦横
-	int piece_size = 15;	 // 一つのピースの描画サイズ
+	double piece_size = 15;	 // 一つのピースの描画サイズ
 	Array<Array<int>> board;  // 2次元配列のボードz
 	Patterns patterns;  // 型抜きの配列
 	Array<Color> piece_colors = {Palette::Red, Palette::Green, Palette::Blue, Palette::Black};
@@ -31,7 +31,7 @@ public:
 	// method
 	bool is_in_board(const Point& pos) const;  // ボード上に収まっているか
 	bool is_in_board(const int y, const int x) const;
-	virtual Point calc_piece_pos(int row, int col) const = 0;  // ピースの座標計算
+	virtual Vec2 calc_piece_pos(int row, int col) const = 0;  // ピースの座標計算
 	Point calc_lefttop(void) const;  // 中心軸を考慮した左上座標
 	void set_selected_pos(const Point& pos);  // 選択ピースの座標取得
 	Point get_selected_pos(void) const;  // 選択ピースの座標取得
@@ -229,20 +229,21 @@ void Board::draw_details(const Board &board) const {
 
 class BoardOperate : public Board {
 private:
-	Point calc_piece_pos(int row, int col) const override;
+	Vec2 calc_piece_pos(int row, int col) const override;
 public:
 	void initialize(const Array<Array<int>>& board);
 	BoardOperate(void) {};
 	void update(void);
 	void draw(const Board& board) const;
 };
-Point BoardOperate::calc_piece_pos(int row, int col) const {
-	return Point{ col * this->piece_size, row * this->piece_size };
+Vec2 BoardOperate::calc_piece_pos(int row, int col) const {
+	return Vec2{ col * this->piece_size, row * this->piece_size };
 }
 void BoardOperate::initialize(const Array<Array<int>>& board) {
 	set_piece_colors();
 	this->height = board.size();
 	this->width = board.front().size();
+	this->piece_size = 480.0 / Max(this->height, this->width);
 	this->board.resize(height, Array<int>(width));
 	this->is_selected.resize(height, Array<bool>(width, false));
 	Array<int> tmp;
@@ -287,15 +288,15 @@ void BoardOperate::draw(const Board& board) const {
 
 class BoardExample : public Board {
 private:
-	Point calc_piece_pos(int row, int col) const override;
+	Vec2 calc_piece_pos(int row, int col) const override;
 public:
 	void initialize(const FilePath& path);
 	BoardExample(void) {};
 	void update(Board & board);
 	void draw(void) const;
 };
-Point BoardExample::calc_piece_pos(int row, int col) const {
-	return Point{ Scene::Size().x - this->width * piece_size + col * this->piece_size, row * this->piece_size };
+Vec2 BoardExample::calc_piece_pos(int row, int col) const {
+	return Vec2{ Scene::Size().x - this->width * piece_size + col * this->piece_size, row * this->piece_size };
 }
 void BoardExample::initialize(const FilePath& path) {
 	set_piece_colors();
@@ -312,6 +313,7 @@ void BoardExample::initialize(const FilePath& path) {
 	}
 	this->height = tmp.size();
 	this->width = tmp.front().size();
+	this->piece_size = 480.0 / Max(this->height, this->width);
 	this->board.resize(height, Array<int>(width));
 	for (int row = 0; row < this->height; row++) {
 		for (int col = 0; col < this->width; col++) {
@@ -331,7 +333,7 @@ void BoardExample::draw(void) const {
 
 class BoardAuto : public Board {
 private:
-	Point calc_piece_pos(int row, int col) const override;
+	Vec2 calc_piece_pos(int row, int col) const override;
 	ChildProcess child;
 	Array<Array<int>> board_origin;
 	int ops_idx = 0;
@@ -345,8 +347,8 @@ public:
 	void update(void);
 	void draw(const Board& board) const;
 };
-Point BoardAuto::calc_piece_pos(int row, int col) const {
-	return Point{ col * this->piece_size, row * this->piece_size };
+Vec2 BoardAuto::calc_piece_pos(int row, int col) const {
+	return Vec2{ col * this->piece_size, row * this->piece_size };
 }
 void BoardAuto::initialize(const Array<Array<int>>& board) {
 	set_piece_colors();
@@ -354,6 +356,7 @@ void BoardAuto::initialize(const Array<Array<int>>& board) {
 	if (not child) throw Error{ U"Failed to create a process" };
 	this->height = board.size();
 	this->width = board.front().size();
+	this->piece_size = 480.0 / Max(this->height, this->width);
 	this->board.resize(height, Array<int>(width));
 	this->board_origin.resize(height, Array<int>(width));
 	this->is_selected.resize(height, Array<bool>(width, false));
