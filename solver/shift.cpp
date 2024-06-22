@@ -195,8 +195,9 @@ void print_state(const vector<vector<int>>& a){
 }
 
 
-#define KATA_BIG 22 // 256x256
-#define KATA_SMALL 0 // 1x1
+#define KATA_MM 22 // 256x256
+#define KATA_11 0 // 1x1
+#define KATA_12 2 // 1x2 (縦 1, 横 2)
 
 // 同じ列から探索
 bool solve_pos_a(vector<tuple<int, int, int, Dir>>& ops, int row, int col, vector<vector<int>>& state_now, const vector<vector<int>>& state_goal){
@@ -205,8 +206,23 @@ bool solve_pos_a(vector<tuple<int, int, int, Dir>>& ops, int row, int col, vecto
   for(int i = row; i < h; i++){
     if(state_now[i][col] != need_val) continue;
     // (i, col) を1x1の抜き型で下寄せ
-    ops.push_back({KATA_SMALL, i, col, Dir::D});
-    state_now = slide(state_now, KATA_SMALL, i, col, Dir::D);
+    ops.push_back({KATA_11, i, col, Dir::D});
+    state_now = slide(state_now, KATA_11, i, col, Dir::D);
+    return true;
+  }
+  return false;
+}
+// 同じ列から探索 1x2
+bool solve_pos_a2(vector<tuple<int, int, int, Dir>>& ops, int row, int col, vector<vector<int>>& state_now, const vector<vector<int>>& state_goal){
+  const int h = state_now.size(), w = state_now[0].size();
+  if(col + 1 >= w) return false;
+  int need_val[2] = {state_goal[h - 1 - row][col], state_goal[h - 1 - row][col + 1]};
+  for(int i = row; i < h; i++){
+    if(state_now[i][col + 0] != need_val[0]) continue;
+    if(state_now[i][col + 1] != need_val[1]) continue;
+    // (i, col) を1x2の抜き型で下寄せ
+    ops.push_back({KATA_12, i, col, Dir::D});
+    state_now = slide(state_now, KATA_12, i, col, Dir::D);
     return true;
   }
   return false;
@@ -222,23 +238,23 @@ bool solve_pos_b(vector<tuple<int, int, int, Dir>>& ops, int row, int col, vecto
         // 左から j - col 列を右シフト、列を合わせる
         // -> (i, j - col - 1)   を右上として256x256の抜き型で左寄せ
         // -> (i, j - col - 256) を左上として256x256の抜き型で左寄せ
-        ops.push_back({KATA_BIG, i, j - col - 256, Dir::L});
-        state_now = slide(state_now, KATA_BIG, i, j - col - 256, Dir::L);
+        ops.push_back({KATA_MM, i, j - col - 256, Dir::L});
+        state_now = slide(state_now, KATA_MM, i, j - col - 256, Dir::L);
         
         // (i, col) を1x1の抜き型で下寄せ
-        ops.push_back({KATA_SMALL, i, col, Dir::D});
-        state_now = slide(state_now, KATA_SMALL, i, col, Dir::D);
+        ops.push_back({KATA_11, i, col, Dir::D});
+        state_now = slide(state_now, KATA_11, i, col, Dir::D);
         return true;
       }else if(j < col){ // 左にある
         // 右から col - j 列を左シフト、列を合わせる
         // -> (i, w - (col - j)) を左上として256x256の抜き型で右寄せ
-        ops.push_back({KATA_BIG, i, w - (col - j), Dir::R});
-        state_now = slide(state_now, KATA_BIG, i, w - (col - j), Dir::R);
+        ops.push_back({KATA_MM, i, w - (col - j), Dir::R});
+        state_now = slide(state_now, KATA_MM, i, w - (col - j), Dir::R);
         
         
         // (i, col) を1x1の抜き型で下寄せ
-        ops.push_back({KATA_SMALL, i, col, Dir::D});
-        state_now = slide(state_now, KATA_SMALL, i, col, Dir::D);
+        ops.push_back({KATA_11, i, col, Dir::D});
+        state_now = slide(state_now, KATA_11, i, col, Dir::D);
         return true;
       }
     }
@@ -255,20 +271,20 @@ bool solve_pos_c(vector<tuple<int, int, int, Dir>>& ops, int row, int col, vecto
     // (row, col) の左側を右シフト
     // -> (row, col - 256) を左上として256x256の抜き型で左寄せ
     if(col != 0){
-      ops.push_back({KATA_BIG, row, col - 256, Dir::L});
-      state_now = slide(state_now, KATA_BIG, row, col - 256, Dir::L);
+      ops.push_back({KATA_MM, row, col - 256, Dir::L});
+      state_now = slide(state_now, KATA_MM, row, col - 256, Dir::L);
     }
     // (row, j - col) を1x1の抜き型で左寄せ
-    ops.push_back({KATA_SMALL, row, j - col, Dir::L});
-    state_now = slide(state_now, KATA_SMALL, row, j - col, Dir::L);
+    ops.push_back({KATA_11, row, j - col, Dir::L});
+    state_now = slide(state_now, KATA_11, row, j - col, Dir::L);
     // (row, w - col - 1) より右側を左シフト（右寄せ）
     if(col != w - 1){
-      ops.push_back({KATA_BIG, row, w - col - 1, Dir::R});
-      state_now = slide(state_now, KATA_BIG, row, w - col - 1, Dir::R);
+      ops.push_back({KATA_MM, row, w - col - 1, Dir::R});
+      state_now = slide(state_now, KATA_MM, row, w - col - 1, Dir::R);
     }
     // (row, col) を1x1の抜き型で下寄せ
-    ops.push_back({KATA_SMALL, row, col, Dir::D});
-    state_now = slide(state_now, KATA_SMALL, row, col, Dir::D);
+    ops.push_back({KATA_11, row, col, Dir::D});
+    state_now = slide(state_now, KATA_11, row, col, Dir::D);
     return true;
   }
   return false;
@@ -281,6 +297,9 @@ vector<tuple<int, int, int, Dir>> solve(const vector<vector<int>> &state_start, 
   vector<vector<int>> state_now = state_start;
   for(int i = 0;i < h; i++){
     for(int j = 0; j < w; j++){
+      if(solve_pos_a2(ops, i, j, state_now, state_goal)) {
+        j++; continue;
+      }
       if(solve_pos_a(ops, i, j, state_now, state_goal)) continue;
       if(solve_pos_b(ops, i, j, state_now, state_goal)) continue;
       if(solve_pos_c(ops, i, j, state_now, state_goal)) continue;
