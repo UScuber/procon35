@@ -4,6 +4,16 @@ import numpy as np
 
 K = 4
 
+
+# 0~K-1のboardが出力ケースに適しているかテスト(各色が全体の10%以上を占めている)
+def check_is_valid_board(board: np.ndarray, H: int, W: int) -> bool:
+  for i in range(K):
+    num = np.count_nonzero(board == i)
+    if num * 10 < H * W:
+      return False
+  return True
+
+
 # return (出力画像, K個のカラーコード配列, 0~K-1のHW盤面)
 def convert(input_image: np.ndarray, H: int, W: int):
   if input_image is None:
@@ -28,4 +38,4 @@ def convert(input_image: np.ndarray, H: int, W: int):
 
   board = label.flatten().reshape((W, H))
 
-  return (result, center, board)
+  return (result, center, board, check_is_valid_board(board, H, W))

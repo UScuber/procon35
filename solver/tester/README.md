@@ -2,6 +2,17 @@
 
 ## tester
 
+
+# 初期化
+
+```
+sudo apt update
+sudo apt install imagemagick
+
+pip3 install -r requirements.txt
+```
+
+
 ### gen.py
 
 - `python3 gen.py <H> <W>`で動作(生成するドット絵のサイズがH,Wとなる)

@@ -5,6 +5,8 @@ import os
 import sys
 import convert
 import numpy as np
+from tqdm import tqdm
+
 
 
 def write_data(center: np.ndarray, board: np.ndarray, H: int, W: int, outputfile: str, colorfile: str):
@@ -38,9 +40,9 @@ if __name__ == "__main__":
   os.makedirs(dir, exist_ok=True)
 
   image_names = glob.glob("images/*.jpg") + glob.glob("images/*.png")
-  print("start writing")
+  print("Start writing")
 
-  for name in image_names:
+  for name in tqdm(image_names):
     file = name.split("/")[-1].split(".")[0]
     filename = f"{dir}/{H}-{W}--{file}.txt"
     colorname = f"{dir}/{H}-{W}--{file}-col.json"
@@ -49,6 +51,7 @@ if __name__ == "__main__":
       continue
 
     image = cv2.imread(name)
-    result, center, board = convert.convert(image, H, W)
+    result, center, board, isvalid = convert.convert(image, H, W)
 
-    write_data(center, board, H, W, filename, colorname)
+    if isvalid:
+      write_data(center, board, H, W, filename, colorname)
