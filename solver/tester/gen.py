@@ -9,15 +9,23 @@ from tqdm import tqdm
 
 
 
-def write_data(center: np.ndarray, board: np.ndarray, H: int, W: int, outputfile: str, colorfile: str):
-  assert colorfile.endswith(".json"), "colorfileの拡張子をjsonにしてください"
+def gen_random_board(board: np.ndarray, H: int, W: int) -> np.ndarray:
+  result = board.copy()
+  np.random.shuffle(result.reshape((H * W)))
+  return result.reshape((H, W))
 
+
+def write_data(center: np.ndarray, board: np.ndarray, H: int, W: int, outputfile: str, colorfile: str):
   with open(outputfile, "w") as f:
-    for i in range(H):
-      s = ""
-      for j in range(W):
-        s += str(board[i, j])
-      f.write(s + "\n")
+    outdata = {
+      "H": H, "W": W,
+    }
+    outdata["goal"] = ["".join(str(board[i, j]) for j in range(W)) for i in range(H)]
+    random_board = gen_random_board(board, H, W)
+    outdata["start"] = ["".join(str(random_board[i, j]) for j in range(W)) for i in range(H)]
+
+    json.dump(outdata, f, indent=2)
+
 
   with open(colorfile, "w") as f:
     d = {}
@@ -44,7 +52,7 @@ if __name__ == "__main__":
 
   for name in tqdm(image_names):
     file = name.split("/")[-1].split(".")[0]
-    filename = f"{dir}/{H}-{W}--{file}.txt"
+    filename = f"{dir}/{H}-{W}--{file}.json"
     colorname = f"{dir}/{H}-{W}--{file}-col.json"
     # 生成済みであればスルー
     if os.path.exists(filename):
