@@ -8,7 +8,6 @@ import numpy as np
 from tqdm import tqdm
 
 
-
 def gen_random_board(board: np.ndarray, H: int, W: int) -> np.ndarray:
   result = board.copy()
   np.random.shuffle(result.reshape((H * W)))
@@ -25,7 +24,6 @@ def write_data(center: np.ndarray, board: np.ndarray, H: int, W: int, outputfile
     outdata["start"] = ["".join(str(random_board[i, j]) for j in range(W)) for i in range(H)]
 
     json.dump(outdata, f, indent=2)
-
 
   with open(colorfile, "w") as f:
     d = {}
@@ -50,16 +48,19 @@ if __name__ == "__main__":
   image_names = glob.glob("images/*.jpg") + glob.glob("images/*.png")
   print("Start writing")
 
+  invalid_num = 0
+
   for name in tqdm(image_names):
     file = name.split("/")[-1].split(".")[0]
-    filename = f"{dir}/{H}-{W}--{file}.json"
+    filename = f"{dir}/{H}-{W}--{file}-in.json"
     colorname = f"{dir}/{H}-{W}--{file}-col.json"
-    # 生成済みであればスルー
-    if os.path.exists(filename):
-      continue
 
     image = cv2.imread(name)
     result, center, board, isvalid = convert.convert(image, H, W)
 
     if isvalid:
       write_data(center, board, H, W, filename, colorname)
+    else:
+      invalid_num += 1
+  
+  print(f"{invalid_num} data was excepted (less color)")
