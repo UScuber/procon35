@@ -75,7 +75,8 @@ if __name__ == "__main__":
     print("Argument Error: python3 tester.py <solver program>")
     exit()
 
-  cpp_dir = os.path.dirname(os.path.abspath(__file__)) + "/cpp"
+  source_dir = os.path.dirname(os.path.abspath(__file__))
+  cpp_dir = source_dir + "/cpp"
   running_dir = os.getcwd()
   solver_path = os.path.join(running_dir, sys.argv[1])
 
@@ -83,9 +84,13 @@ if __name__ == "__main__":
     print("solver program was not found")
     exit()
 
-  test_cases = glob.glob("output/*-*--*-in.json")
+  test_cases = glob.glob(source_dir + "/output/*-*--*-in.json")
   if len(sys.argv) >= 4:
-    test_cases = glob.glob(f"output/{sys.argv[2]}-{sys.argv[3]}--*-in.json")
+    test_cases = glob.glob(f"{source_dir}/output/{sys.argv[2]}-{sys.argv[3]}--*-in.json")
+
+  if len(test_cases) == 0:
+    print("number of test cases is 0")
+    exit()
 
   # compile tester
   subprocess.run(["g++", cpp_dir+"/tester.cpp", "-O2", "-o", cpp_dir+"/tester"])
