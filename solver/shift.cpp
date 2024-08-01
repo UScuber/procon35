@@ -610,32 +610,90 @@ bool solve_pos_b(vector<tuple<int, int, int, Dir>>& ops, int row, int col, vecto
   return false;
 }
 // 未確定の (row, j) を探索
-bool solve_pos_c(vector<tuple<int, int, int, Dir>>& ops, int row, int col, vector<vector<int>>& state_now, const vector<vector<int>>& state_goal){
+bool solve_pos_c(vector<tuple<int, int, int, Dir>>& ops, int row, int col, vector<vector<int>>& state_now, const vector<vector<int>>& state_goal, const vector<bool>& used){
   const int h = state_now.size(), w = state_now[0].size();
   int need_val = state_goal[h - 1 - row][col];
-  // (row, col) より左側は確定されている
-  for(int j = col; j < w; j++){
+  // (row, col) の左側
+  for(int j = 0;j < w;j++){
     if(state_now[row][j] != need_val) continue;
-    // (row, col) の左側を右シフト
-    // -> (row, col - 256) を左上として256x256の抜き型で左寄せ
-    if(col != 0){
-      ops.push_back({KATA_MM, row, col - 256, Dir::L});
-      state_now = teikei_slide(state_now, KATA_MM, row, col - 256, Dir::L);
+    if(used[j])continue;
+    // j と col の距離
+    int dist = abs(j - col);
+
+    // (row, j) を下シフト
+    ops.push_back({KATA_11, row, j, Dir::U});
+    state_now = teikei_slide(state_now, KATA_11, row, j, Dir::U);
+
+    if(j < col){
+      ops.push_back({KATA_MM, h - 1, w - dist, Dir::R});
+      state_now = teikei_slide(state_now, KATA_MM, h - 1, w - dist, Dir::R);
+    }else{
+      ops.push_back({KATA_MM, h - 1, dist - 256, Dir::L});
+      state_now = teikei_slide(state_now, KATA_MM, h - 1, dist - 256, Dir::R);
     }
-    // (row, j - col) を1x1の抜き型で左寄せ
-    ops.push_back({KATA_11, row, j - col, Dir::L});
-    state_now = teikei_slide(state_now, KATA_11, row, j - col, Dir::L);
-    // (row, w - col - 1) より右側を左シフト（右寄せ）
-    if(col != w - 1){
-      ops.push_back({KATA_MM, row, w - col - 1, Dir::R});
-      state_now = teikei_slide(state_now, KATA_MM, row, w - col - 1, Dir::R);
-    }
-    // (row, col) を1x1の抜き型で下寄せ
-    ops.push_back({KATA_11, row, col, Dir::D});
-    state_now = teikei_slide(state_now, KATA_11, row, col, Dir::D);
+
+    // (h - 1, col) を1x1の抜き型で上シフト
+    ops.push_back({KATA_11, h - 1, col, Dir::D});
+    state_now = teikei_slide(state_now, KATA_11, h - 1, col, Dir::D);
+    
     return true;
   }
   return false;
+}
+void solve_row(vector<tuple<int, int, int, Dir>>& ops, int row, vector<vector<int>>& state_now, const vector<vector<int>>& state_goal){
+  const int h = state_now.size(), w = state_now[0].size();
+  vector<bool> used(w);
+  if(row == h - 1){
+    for(int i = 0;i < w;i++){
+      for(int j = i;j < w;j++){
+        if(state_goal[0][w - 1 - i] == state_now[row][j]){
+          // (row, j) を左シフト
+          ops.push_back({KATA_11, row, j, Dir::R});
+          state_now = teikei_slide(state_now, KATA_11, row, j, Dir::R);
+          break;
+        }
+      }
+    }
+    ops.push_back({KATA_MM, h - 1, 0, Dir::D});
+    state_now = slide(state_now, KATA_MM, h - 1, 0, Dir::D);
+    return;
+  }
+  int cnt = 0;
+  while(cnt < w){
+    for(int i = 0;i + 1 < w;i++){
+      if(used[i] || used[i + 1])continue;
+      if(solve_pos_a2(ops, row, i, state_now, state_goal)){
+        used[i] = used[i + 1] = true;
+        cnt += 2;
+      }
+    }
+    for(int i = 0;i < w;i++){
+      if(used[i])continue;
+      if(solve_pos_a(ops, row, i, state_now, state_goal)){
+        used[i] = true;
+        cnt++;
+      }
+    }
+    // 下側を回転させたかどうか
+    bool isrot = false;
+    for(int i = 0;i < w;i++){
+      if(used[i])continue;
+      if(solve_pos_b(ops, row, i, state_now, state_goal)){
+        used[i] = true;
+        isrot = true;
+        cnt++;
+        break;
+      }
+    }
+    if(isrot)continue;
+    for(int i = 0;i < w;i++){
+      if(used[i])continue;
+      if(solve_pos_c(ops, row, i, state_now, state_goal, used)){
+        used[i] = true;
+        cnt++;
+      }
+    }
+  }
 }
 vector<tuple<int, int, int, Dir>> solve(const vector<vector<int>> &state_start, const vector<vector<int>> &state_goal){
   const int h = state_start.size(), w = state_start[0].size();
@@ -644,14 +702,7 @@ vector<tuple<int, int, int, Dir>> solve(const vector<vector<int>> &state_start, 
   // 現在の盤面
   vector<vector<int>> state_now = state_start;
   for(int i = 0;i < h; i++){
-    for(int j = 0; j < w; j++){
-      if(solve_pos_a2(ops, i, j, state_now, state_goal)) {
-        j++; continue;
-      }
-      if(solve_pos_a(ops, i, j, state_now, state_goal)) continue;
-      if(solve_pos_b(ops, i, j, state_now, state_goal)) continue;
-      if(solve_pos_c(ops, i, j, state_now, state_goal)) continue;
-    }
+    solve_row(ops, i, state_now, state_goal);
   }
   return ops;
 }
@@ -707,7 +758,7 @@ int main(){
   }
   // cout << "expect : \n";
   // print_state(state_goal);
-  
+
   // チェック
   for(int i = 0; i < h; i++){
     for(int j = 0; j < w; j++){
