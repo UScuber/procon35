@@ -346,8 +346,8 @@ void reverse_row(vector<vector<int>> &a, const int sy, const int ty, const int s
   vector<int> tmp(tx - sx);
   for(int i = sy; i < (sy+ty)/2; i++){
     copy(a[i].begin() + sx, a[i].begin() + tx, tmp.begin());
-    copy(a[ty+tx-i-1].begin() + sx, a[ty+tx-i-1].begin() + tx, a[i].begin() + sx);
-    copy(tmp.begin(), tmp.end(), a[ty+tx-i-1].begin() + sx);
+    copy(a[ty+sy-i-1].begin() + sx, a[ty+sy-i-1].begin() + tx, a[i].begin() + sx);
+    copy(tmp.begin(), tmp.end(), a[ty+sy-i-1].begin() + sx);
   }
 }
 
@@ -655,7 +655,7 @@ void solve_row(vector<tuple<int, int, int, Dir>>& ops, int row, vector<vector<in
       }
     }
     ops.push_back({KATA_MM, h - 1, 0, Dir::D});
-    state_now = slide(state_now, KATA_MM, h - 1, 0, Dir::D);
+    state_now = teikei_slide(state_now, KATA_MM, h - 1, 0, Dir::D);
     return;
   }
   int cnt = 0;
