@@ -26,6 +26,14 @@ struct Board {
     a[j][i] = v;
   }
 
+  inline constexpr int height() const{
+    return h;
+  }
+  
+  inline constexpr int width() const{
+    return w;
+  }
+
   struct reference {
     Bitset *ptr;
     const int posy;
