@@ -2,7 +2,8 @@
 
 #include <vector>
 #include "bitset.hpp"
-
+#include "operation.hpp"
+using namespace std;
 
 struct Board {
 
@@ -18,7 +19,7 @@ struct Board {
     }
   }
 
-  inline constexpr uchar get(const int i, const int j) const{
+  inline uchar get(const int i, const int j) const{
     return a[j][i];
   }
 
@@ -26,12 +27,19 @@ struct Board {
     a[j][i] = v;
   }
 
-  inline constexpr int height() const{
+  inline int height() const{
     return h;
   }
   
-  inline constexpr int width() const{
+  inline int width() const{
     return w;
+  }
+
+  void slide(const Board& kata, const int posy, const int posx, const Dir dir){
+    if(dir == Dir::U) up_slide(kata, posy, posx);
+    if(dir == Dir::L) left_slide(kata, posy, posx);
+    if(dir == Dir::D) down_slide(kata, posy, posx);
+    if(dir == Dir::R) right_slide(kata, posy, posx);
   }
 
   struct reference {
@@ -72,4 +80,127 @@ private:
 
   Bitset a[256];
   int h,w;
+  void left_slide(const Board &kata, const int posy, const int posx){
+    const int kata_sy = max(0, -posy), kata_sx = max(0, -posx);
+    const int kata_ty = min(kata.height(), h-posy), kata_tx = min(kata.width(), w-posx);
+    const int board_y = max(0, posy) - kata_sy, board_x = max(0, posx) - kata_sx;
+
+    for(int i = kata_sy; i < kata_ty; i++){
+      auto row = reference(a, i+board_y);
+      vector<uchar> picked_pieces;
+      vector<bool> ispicked(w);
+
+      // pick
+      for(int j = kata_sx; j < kata_tx; j++){
+        if(kata[i][j]){
+          picked_pieces.push_back(row[j+board_x]);
+          ispicked[j+board_x] = true;
+        }
+      }
+
+      // shift
+      int picked_count = 0;
+      for(int j = 0; j < w; j++){
+        if(ispicked[j]){
+          picked_count++;
+        }else if(picked_count){
+          row[j - picked_count] = row[j];
+        }
+      }
+
+      // put
+      int put_count = 0;
+      for(int j = w - picked_count; j < w; j++){
+        row[j] = picked_pieces[put_count++];
+      }
+    }
+  }
+  void right_slide(const Board &kata, const int posy, const int posx){
+    const int kata_sy = max(0, -posy), kata_sx = max(0, -posx);
+    const int kata_ty = min(kata.height(), h-posy), kata_tx = min(kata.width(), w-posx);
+    const int board_y = max(0, posy) - kata_sy, board_x = max(0, posx) - kata_sx;
+
+    for(int i = kata_sy; i < kata_ty; i++){
+      auto row = reference(a, i+board_y);
+      vector<uchar> picked_pieces;
+      vector<bool> ispicked(w);
+
+      // pick
+      for(int j = kata_tx-1; j >= kata_sx; j--){
+        if(kata[i][j]){
+          picked_pieces.push_back(row[j+board_x]);
+          ispicked[j+board_x] = true;
+        }
+      }
+
+      // shift
+      int picked_count = 0;
+      for(int j = w-1; j >= 0; j--){
+        if(ispicked[j]){
+          picked_count++;
+        }else if(picked_count){
+          row[j + picked_count] = row[j];
+        }
+      }
+
+      // put
+      int put_count = 0;
+      for(int j = picked_count-1; j >= 0; j--){
+        row[j] = picked_pieces[put_count++];
+      }
+    }
+  }
+  void up_slide(const Board &kata, const int posy, const int posx){
+    const int kata_sy = max(0, -posy), kata_sx = max(0, -posx);
+    const int kata_ty = min(kata.height(), h-posy), kata_tx = min(kata.width(), w-posx);
+    const int board_y = max(0, posy) - kata_sy, board_x = max(0, posx) - kata_sx;
+
+    for(int j = kata_sx; j < kata_tx; j++){
+      auto& column = a[j+board_x];
+      vector<uchar> picked_pieces;
+      vector<int> picked_pos;
+
+      // pick
+      for(int i = kata_sy; i < kata_ty; i++){
+        if(kata[i][j]){
+          picked_pieces.push_back(column[i+board_y]);
+          picked_pos.push_back(i+board_y);
+        }
+      }
+      picked_pos.push_back(h);
+
+      // shift
+      int picked_count = 0;
+      for(int i = 0; i + 1 < picked_pos.size(); i++){
+        column.rotate(picked_pos[i]-picked_count, picked_pos[i]+1, picked_pos[i+1]);
+      }
+    }
+  }
+  void down_slide(const Board &kata, const int posy, const int posx){
+    const int kata_sy = max(0, -posy), kata_sx = max(0, -posx);
+    const int kata_ty = min(kata.height(), h-posy), kata_tx = min(kata.width(), w-posx);
+    const int board_y = max(0, posy) - kata_sy, board_x = max(0, posx) - kata_sx;
+
+    for(int j = kata_sx; j < kata_tx; j++){
+      auto& column = a[j+board_x];
+      vector<uchar> picked_pieces;
+      vector<int> picked_pos;
+
+      // pick
+      for(int i = kata_ty - 1; i >= kata_sy; i--){
+        if(kata[i][j]){
+          picked_pieces.push_back(column[i+board_y]);
+          picked_pos.push_back(i+board_y);
+        }
+      }
+      picked_pos.push_back(-1);
+
+      // shift
+      int picked_count = 0;
+      for(int i = 0; i + 1 < picked_pos.size(); i++){
+        column.rotate(picked_pos[i+1]+1, picked_pos[i], picked_pos[i]+picked_count+1);
+      }
+    }
+  }
+
 };
