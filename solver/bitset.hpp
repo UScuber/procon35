@@ -75,6 +75,7 @@ struct Bitset {
 
   // &= (1 << len) - 1
   inline Bitset &mask(const int len){
+    if(len == 512) return *this;
     const int div = len / 64;
     const int rem = len % 64;
     a[div] &= (1ULL << rem) - 1;
