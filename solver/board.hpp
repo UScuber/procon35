@@ -172,7 +172,9 @@ private:
       // shift
       int picked_count = 0;
       for(int i = 0; i + 1 < picked_pos.size(); i++){
-        column.rotate(picked_pos[i]-picked_count, picked_pos[i]+1, picked_pos[i+1]);
+        if(picked_pos[i] + 1 != picked_pos[i+1]){
+          column.rotate(picked_pos[i]-i, picked_pos[i]+1, picked_pos[i+1]);
+        }
       }
     }
   }
@@ -198,7 +200,7 @@ private:
       // shift
       int picked_count = 0;
       for(int i = 0; i + 1 < picked_pos.size(); i++){
-        column.rotate(picked_pos[i+1]+1, picked_pos[i], picked_pos[i]+picked_count+1);
+        column.rotate(picked_pos[i+1]+1, picked_pos[i], picked_pos[i]+i+1);
       }
     }
   }
