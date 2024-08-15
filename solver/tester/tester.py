@@ -49,8 +49,8 @@ def run_test(test_cases, cpp_dir):
         elapsed_time = (time.perf_counter() - start_time) * 1000
         
         # check
-        ops = sum([1 for s in output.splitlines() if len(s.split()) == 4])
-        tester_input = input_data + f"{ops}\n" + output
+        ops = int(output.splitlines()[0])
+        tester_input = input_data + output
         tester_process = subprocess.run(cpp_dir + "/tester", input=tester_input, text=True, capture_output=True)
         result = tester_process.stdout
 
@@ -93,6 +93,7 @@ if __name__ == "__main__":
     exit()
 
   # compile tester
-  subprocess.run(["g++", cpp_dir+"/tester.cpp", "-O2", "-o", cpp_dir+"/tester"])
+  if not os.path.exists(cpp_dir+"/tester"):
+    subprocess.run(["g++", cpp_dir+"/tester.cpp", "-O2", "-o", cpp_dir+"/tester"])
 
   run_test(test_cases, cpp_dir)
