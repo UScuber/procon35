@@ -14,7 +14,6 @@ vector<Board> cutting_dies; // 抜き型
 
 void one_slide(vector<vector<int>> &a, const int posy, const int posx, const Dir dir){
   const int h = a.size();
-  const int w = a[0].size();
 
   const int piece = a[posy][posx];
 
@@ -332,7 +331,7 @@ void teikei_down_slide(vector<vector<int>> &a, const int size, const int type, c
 vector<vector<int>> teikei_slide(const vector<vector<int>> &a, int kata_index, const int posy, const int posx, const Dir dir){
   const int h = a.size();
   const int w = a[0].size();
-  assert(0 <= kata_index < 25);
+  assert(0 <= kata_index && kata_index < 25);
 
   vector<vector<int>> result = a;
 
@@ -377,7 +376,7 @@ void print_state(const Board& a){
 
 // 同じ列から探索
 bool solve_pos_a(vector<Operation>& ops, int row, int col, Board& state_now, const Board& state_goal){
-  const int h = state_now.height(), w = state_now.width();
+  const int h = state_now.height();
   int need_val = state_goal[h - 1 - row][col];
   for(int i = row; i < h; i++){
     if(state_now[i][col] != need_val) continue;
@@ -523,7 +522,7 @@ void solve_row(vector<Operation>& ops, int row, Board& state_now, const Board& s
   }
 }
 Operations solve(const Board &state_start, const Board &state_goal){
-  const int h = state_start.height(), w = state_start.width();
+  const int h = state_start.height();
   // 操作 (p, x, y, s)
   Operations ops;
   // 現在の盤面
@@ -578,12 +577,12 @@ int main(){
   // cout << "start : \n";
   // print_state(state_start);
   Board state_now = state_start;
-  for(Operation op : ops){
+  for(const Operation op : ops){
     const int s = op.kata_idx();
     const int y = op.y();
     const int x = op.x();
     const Dir d = op.dir();
-    cout << s << flush << ' ' << y << flush << ' ' << x << flush << ' ' << (int)d << endl;
+    cout << op << endl;
     state_now.slide(cutting_dies[s], y, x, d);
     // print_state(state_now);
   }
