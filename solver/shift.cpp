@@ -8,9 +8,6 @@
 using namespace std;
 
 
-vector<Board> cutting_dies; // 抜き型
-
-
 
 void one_slide(vector<vector<int>> &a, const int posy, const int posx, const Dir dir){
   const int h = a.size();
@@ -578,12 +575,8 @@ int main(){
   // print_state(state_start);
   Board state_now = state_start;
   for(const Operation op : ops){
-    const int s = op.kata_idx();
-    const int y = op.y();
-    const int x = op.x();
-    const Dir d = op.dir();
     cout << op << endl;
-    state_now.slide(cutting_dies[s], y, x, d);
+    state_now.slide(op);
     // print_state(state_now);
   }
   // cout << "expect : \n";
