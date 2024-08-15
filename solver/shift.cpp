@@ -573,12 +573,14 @@ int main(){
   // 出力
   // cout << "start : \n";
   // print_state(state_start);
+  cout << ops.size() << "\n";
   Board state_now = state_start;
   for(const Operation op : ops){
-    cout << op << endl;
+    cout << op << "\n";
     state_now.slide(op);
     // print_state(state_now);
   }
+  cout << endl;
   // cout << "expect : \n";
   // print_state(state_goal);
 
