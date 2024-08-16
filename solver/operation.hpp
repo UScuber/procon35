@@ -1,13 +1,6 @@
 #pragma once
 
-#include <iostream>
-#include <algorithm>
-#include <cassert>
-
-
-enum class Dir {
-  U,D,L,R,
-};
+#include "common.hpp"
 
 
 struct Operation {

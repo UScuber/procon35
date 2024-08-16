@@ -1,6 +1,5 @@
 #pragma once
 
-#include <vector>
 #include "bitset.hpp"
 #include "operation.hpp"
 
@@ -59,8 +58,6 @@ private:
 
 };
 
-
-std::vector<Board> cutting_dies; // 抜き型
 
 
 

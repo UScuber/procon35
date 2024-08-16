@@ -1,8 +1,3 @@
-#include <iostream>
-#include <vector>
-#include <algorithm>
-#include <cassert>
-#include <tuple>
 #include "board.hpp"
 
 using namespace std;
@@ -566,7 +561,7 @@ int main(){
       state_goal[i][j] = s[j] - '0';
     }
   }
-  
+
   // 手順を計算
   auto ops = solve(state_start, state_goal);
 

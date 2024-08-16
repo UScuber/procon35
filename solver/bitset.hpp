@@ -1,10 +1,6 @@
 #pragma once
 
-#include <vector>
-#include <cassert>
-
-using ull = unsigned long long;
-using uchar = unsigned char;
+#include "common.hpp"
 
 
 struct Bitset {
