@@ -29,6 +29,9 @@ public:
 	Texture anchor_icon{0xf13d_icon, anchor_icon_size};  // 錨アイコン
 	//////////////////////////////////////////////////////////////
 	// method
+	void initialize(const Array<Array<int>>& board); // 初期化
+	void initialize_noshuffle(const Array<Array<int>>& board); // 初期化
+	void initialize(const FilePath& path);
 	bool is_in_board(const Point& pos) const;  // ボード上に収まっているか
 	bool is_in_board(const int y, const int x) const;
 	virtual Vec2 calc_piece_pos(int row, int col) const = 0;  // ピースの座標計算
@@ -57,6 +60,63 @@ public:
 	void draw_selected(void) const;  // 選択されているピースを黒く表示
 	void draw_details(const Board &board) const;  // 詳細表示
 };
+
+void Board::initialize(const Array<Array<int>>& board) {
+	set_piece_colors();
+	this->height = board.size();
+	this->width = board.front().size();
+	this->piece_size = 480.0 / Max(this->height, this->width);
+	this->board.resize(height, Array<int>(width));
+	this->is_selected.resize(height, Array<bool>(width, false));
+	Array<int> tmp;
+	for (int i = 0; i < height * width; i++) {
+		tmp << board[i / width][i % width];
+	}
+	tmp.shuffle();
+	for (int row = 0; row < this->height; row++) {
+		for (int col = 0; col < this->width; col++) {
+			int num = tmp[row * this->height + col];
+			set_piece(num, row, col);
+		}
+	}
+}
+void Board::initialize_noshuffle(const Array<Array<int>>& board){
+	set_piece_colors();
+	this->height = board.size();
+	this->width = board.front().size();
+	this->piece_size = 480.0 / Max(this->height, this->width);
+	this->board.resize(height, Array<int>(width));
+	this->is_selected.resize(height, Array<bool>(width, false));
+	for (int row = 0; row < this->height; row++) {
+		for (int col = 0; col < this->width; col++) {
+			set_piece(board[row][col], row, col);
+		}
+	}
+}
+void Board::initialize(const FilePath& path) {
+	set_piece_colors();
+	TextReader reader{ path };
+	if (not reader) throw Error{ U"failed to open {}"_fmt(path) };
+	String line;
+	Array<Array<int>> tmp;
+	while (reader.readLine(line)) {
+		Array<int> row;
+		for (const char8& num : line) {
+			row << num - U'0';
+		}
+		tmp << row;
+	}
+	this->height = tmp.size();
+	this->width = tmp.front().size();
+	this->piece_size = 480.0 / Max(this->height, this->width);
+	this->board.resize(height, Array<int>(width));
+	for (int row = 0; row < this->height; row++) {
+		for (int col = 0; col < this->width; col++) {
+			set_piece(tmp[row][col], row, col);
+		}
+	}
+	this->is_selected.resize(height, Array<bool>(width, false));
+}
 
 
 bool Board::is_in_board(const Point& pos) const {
@@ -231,32 +291,12 @@ class BoardOperate : public Board {
 private:
 	Vec2 calc_piece_pos(int row, int col) const override;
 public:
-	void initialize(const Array<Array<int>>& board);
 	BoardOperate(void) {};
 	void update(void);
 	void draw(const Board& board) const;
 };
 Vec2 BoardOperate::calc_piece_pos(int row, int col) const {
 	return Vec2{ col * this->piece_size, row * this->piece_size };
-}
-void BoardOperate::initialize(const Array<Array<int>>& board) {
-	set_piece_colors();
-	this->height = board.size();
-	this->width = board.front().size();
-	this->piece_size = 480.0 / Max(this->height, this->width);
-	this->board.resize(height, Array<int>(width));
-	this->is_selected.resize(height, Array<bool>(width, false));
-	Array<int> tmp;
-	for (int i = 0; i < height * width; i++) {
-		tmp << board[i / width][i % width];
-	}
-	tmp.shuffle();
-	for (int row = 0; row < this->height; row++) {
-		for (int col = 0; col < this->width; col++) {
-			int num = tmp[row * this->height + col];
-			set_piece(num, row, col);
-		}
-	}
 }
 void BoardOperate::update(void) {
 	switch_wasd();
@@ -290,37 +330,13 @@ class BoardExample : public Board {
 private:
 	Vec2 calc_piece_pos(int row, int col) const override;
 public:
-	void initialize(const FilePath& path);
+	//void initialize(const FilePath& path);
 	BoardExample(void) {};
 	void update(Board & board);
 	void draw(void) const;
 };
 Vec2 BoardExample::calc_piece_pos(int row, int col) const {
 	return Vec2{ Scene::Size().x - this->width * piece_size + col * this->piece_size, row * this->piece_size };
-}
-void BoardExample::initialize(const FilePath& path) {
-	set_piece_colors();
-	TextReader reader{ path };
-	if (not reader) throw Error{ U"failed to open {}"_fmt(path) };
-	String line;
-	Array<Array<int>> tmp;
-	while (reader.readLine(line)) {
-		Array<int> row;
-		for (const char8& num : line) {
-			row << num - U'0';
-		}
-		tmp << row;
-	}
-	this->height = tmp.size();
-	this->width = tmp.front().size();
-	this->piece_size = 480.0 / Max(this->height, this->width);
-	this->board.resize(height, Array<int>(width));
-	for (int row = 0; row < this->height; row++) {
-		for (int col = 0; col < this->width; col++) {
-			set_piece(tmp[row][col], row, col);
-		}
-	}
-	this->is_selected.resize(height, Array<bool>(width, false));
 }
 void BoardExample::update(Board& board) {
 	this->is_selected = board.is_selected;
@@ -343,6 +359,8 @@ private:
 	void update_gui(void);
 public:
 	void initialize(const Array<Array<int>>& board);
+	void initialize(const Array<Array<int>>& board_start, const Array<Array<int>>& board_goal);
+	JSON get_json(void) const;
 	BoardAuto(void) {};
 	void update(void);
 	void draw(const Board& board) const;
@@ -399,6 +417,57 @@ void BoardAuto::initialize(const Array<Array<int>>& board) {
 		this->datawriter.add_op(p, Point{ x,y }, (Dir)s);
 	}
 	this->datawriter.get_json().save(U"./tmp.json");
+}
+
+void BoardAuto::initialize(const Array<Array<int>>& board_start, const Array<Array<int>>& board_goal) {
+	Console << board_start;
+	Console << board_goal;
+	set_piece_colors();
+	this->child = ChildProcess{ U"./solver.exe", Pipe::StdInOut };
+	if (not child) throw Error{ U"Failed to create a process" };
+	this->height = board_start.size();
+	this->width = board_start.front().size();
+	this->piece_size = 480.0 / Max(this->height, this->width);
+	this->board.resize(height, Array<int>(width));
+	this->board_origin.resize(height, Array<int>(width));
+	this->is_selected.resize(height, Array<bool>(width, false));
+	for (int row = 0; row < this->height; row++) {
+		for (int col = 0; col < this->width; col++) {
+			set_piece(board_start[row][col], row, col);
+		}
+	}
+	for (int row = 0; row < this->height; row++) {
+		for (int col = 0; col < this->width; col++) {
+			this->board_origin[row][col] = get_piece(row, col);
+		}
+	}
+	// プロセスに入力を与える
+	this->child.ostream() << this->height << std::endl << this->width << std::endl;
+	for (int row = 0; row < this->height; row++) {
+		String input = U"";
+		for (int col = 0; col < this->width; col++) {
+			input += Format(this->get_piece(row, col));
+		}
+		this->child.ostream() << input.narrow() << std::endl;
+	}
+	for (int row = 0; row < this->height; row++) {
+		String input = U"";
+		for (int col = 0; col < this->width; col++) {
+			input += Format(board_goal[row][col]);
+		}
+		this->child.ostream() << input.narrow() << std::endl;
+	}
+	int n, p, x, y, s;
+	this->child.istream() >> n;
+	for (int i = 0; i < n; i++) {
+		this->child.istream() >> p >> y >> x >> s;
+		this->datawriter.add_op(p, Point{ x,y }, (Dir)s);
+	}
+	this->datawriter.get_json().save(U"./answer.json");
+}
+
+JSON BoardAuto::get_json(void) const {
+	return this->datawriter.get_json();
 }
 
 void BoardAuto::update_board(void) {

@@ -68,12 +68,21 @@ public:
 	void draw(void) const override;
 };
 ConnectScene::ConnectScene(const InitData& init) : IScene{ init } {
-	const JSON problem_json = connect.get_problem();
-	//Optional<FilePath> path = Dialog::OpenFile({ FileFilter::Text() });
-	//if (not path) return;
-	//this->board_example.initialize(path.value());
-	//this->board_auto.initialize(this->board_example.get_board());
+	this->connect.get_problem();
+	this->board_example.initialize_noshuffle(this->connect.get_problem_board_goal());
+	this->board_auto.initialize(this->connect.get_problem_board_start(), this->connect.get_problem_board_goal());
+	this->connect.post_answer(this->board_auto.get_json());
 }
+void ConnectScene::update(void) {
+	if (KeyP.down()) changeScene(U"SelectScene");
+	this->board_example.update(this->board_auto);
+	this->board_auto.update();
+}
+void ConnectScene::draw(void) const {
+	this->board_example.draw();
+	this->board_auto.draw(this->board_example);
+}
+
 
 
 class SelectScene : public App::Scene {
@@ -102,9 +111,6 @@ void Main() {
 	Window::Resize(1280, 720);
 	//Window::SetFullscreen(true);
 	Scene::SetBackground(Palette::Gray);
-
-	Connect connect;
-	connect.get_problem();
 
 	App manager;
 	manager.add<SelectScene>(U"SelectScene");

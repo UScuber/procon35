@@ -12,10 +12,14 @@ private:
 	URL url_base;
 	String token;
 	const HashTable<String, String> headers{ { U"Content-Type", U"application/json" } };
+	JSON get_problem_response_json;
+	JSON post_answer_response_json;
 public:
 	Connect(void);
-	Optional<JSON> get_problem(void) const;
-	Optional<JSON> post_answer(const JSON& json) const;
+	void get_problem(void);
+	void post_answer(const JSON& json);
+	Array<Array<int>> get_problem_board_start(void) const;
+	Array<Array<int>> get_problem_board_goal(void) const;
 };
 
 Connect::Connect(void) {
@@ -33,34 +37,65 @@ Connect::Connect(void) {
 	reader_token.readLine(token);
 }
 
-Optional<JSON> Connect::get_problem(void) const {
+void Connect::get_problem(void) {
 	const URL url = url_base + U"/problem?token=" + this->token;
 	const FilePath save_file_path = U"./problem.json";
 	if (const auto response = SimpleHTTP::Get(url, this->headers, save_file_path)) {
 		if (response.isOK()) {
-			const JSON response_json = JSON::Load(save_file_path);
-			Console << response_json;
-			return response_json;
+			this->get_problem_response_json = JSON::Load(save_file_path);
+			return;
 		}
-		output_console_fail(U"status code:{} \t get problem"_fmt((int)response.getStatusCode()));
+		else {
+			output_console_fail(U"status code:{} \t get problem"_fmt((int)response.getStatusCode()));
+		}
 	}
 	output_console_fail(U"get problem");
-	return none;
 }
 
-Optional<JSON> Connect::post_answer(const JSON& json) const {
-	const URL url = url_base + U"/problem?token=" + this->token;
+void Connect::post_answer(const JSON& json) {
+	const URL url = url_base + U"/answer?token=" + this->token;
 	const FilePath save_file_path = U"./answer.json";
 	const std::string data = json.formatUTF8();
 	if (const auto response = SimpleHTTP::Post(url, this->headers, data.data(), data.size(), save_file_path)) {
 		if (response.isOK()) {
-			const JSON response_json = JSON::Load(save_file_path);
-			Console << response_json;
-			return response_json;
+			this->post_answer_response_json = JSON::Load(save_file_path);
+			return;
 		}
-		output_console_fail(U"status code:{} \t post answer"_fmt((int)response.getStatusCode()));
+		else {
+			output_console_fail(U"status code:{} \t post answer"_fmt((int)response.getStatusCode()));
+		}
 	}
 	output_console_fail(U"post answer");
-	return none;
 }
+
+Array<Array<int>> Connect::get_problem_board_start(void) const {
+	const int width = this->get_problem_response_json[U"board"][U"width"].get<int>();
+	const int height = this->get_problem_response_json[U"board"][U"height"].get<int>();
+	Array<Array<int>> res(height, Array<int>(width));
+	for (auto&& [key, value] : this->get_problem_response_json[U"board"][U"start"]) {
+		int i = Parse<int>(key);
+		std::string str = value.format().narrow();
+		// 取得した数値の文字列にはダブルクォーテーションが含まれている
+		for (int j = 0; j < width; j++) {
+			res[i][j] = (int)str[j+1] - (int)U'0';
+		}
+	}
+	return res;
+}
+
+Array<Array<int>> Connect::get_problem_board_goal(void) const {
+	const int width = this->get_problem_response_json[U"board"][U"width"].get<int>();
+	const int height = this->get_problem_response_json[U"board"][U"height"].get<int>();
+	Array<Array<int>> res(height, Array<int>(width));
+	for (auto&& [key, value] : this->get_problem_response_json[U"board"][U"goal"]) {
+		int i = Parse<int>(key);
+		std::string str = value.format().narrow();
+		// 取得した数値の文字列にはダブルクォーテーションが含まれている
+		for (int j = 0; j < width; j++) {
+			res[i][j] = (int)str[j + 1] - (int)U'0';
+		}
+	}
+	return res;
+}
+
 
