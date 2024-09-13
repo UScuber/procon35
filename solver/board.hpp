@@ -45,6 +45,7 @@ struct Board {
 
   inline constexpr reference_const operator[](const int posy) const;
 
+  void debug() const;
 
 private:
 
@@ -122,6 +123,16 @@ inline Board::reference Board::operator[](const int posy){
 
 inline constexpr Board::reference_const Board::operator[](const int posy) const{
   return reference_const(a, posy);
+}
+
+void Board::debug() const{
+  for(int i = 0; i < height(); i++){
+    const auto ref = (*this)[i];
+    for(int j = 0; j < width(); j++){
+      std::cerr << (int)ref[j];
+    }
+    std::cerr << "\n";
+  }
 }
 
 

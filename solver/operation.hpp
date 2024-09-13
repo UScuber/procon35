@@ -18,6 +18,10 @@ struct Operation {
 
   inline constexpr Dir dir() const;
 
+  inline constexpr bool operator==(const Operation &op) const;
+
+  inline constexpr bool operator!=(const Operation &op) const;
+
   void debug() const;
 
 private:
@@ -63,6 +67,14 @@ inline constexpr int Operation::x() const{
 
 inline constexpr Dir Operation::dir() const{
   return (Dir)(data >> 27 & 3);
+}
+
+inline constexpr bool Operation::operator==(const Operation &op) const{
+  return data == op.data;
+}
+
+inline constexpr bool Operation::operator!=(const Operation &op) const{
+  return data != op.data;
 }
 
 void Operation::debug() const{
