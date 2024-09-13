@@ -119,6 +119,7 @@ void Main() {
 	manager.add<AutoScene>(U"AutoScene");
 
 	while (System::Update()) {
+		const ScopedRenderStates2D sampler{ SamplerState::ClampNearest };
 		if (not manager.update()) {
 			break;
 		}

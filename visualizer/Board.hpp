@@ -27,6 +27,7 @@ public:
 	Point selected_pos{ 0,0 };  // 選択ピースの座標
 	int anchor_icon_size = Scene::Size().y / 20;  // 錨アイコンの大きさ
 	Texture anchor_icon{0xf13d_icon, anchor_icon_size};  // 錨アイコン
+	DynamicTexture board_dynamic_texture; // ボード描画用のダイナミックテクスチャ
 	//////////////////////////////////////////////////////////////
 	// method
 	void initialize(const Array<Array<int>>& board); // 初期化
@@ -54,6 +55,7 @@ public:
 	void move(void);  // 型抜きの移動
 	void move(int p, int x, int y, Dir dir, bool enable_json);  // 指定して移動
 	void move(int p, const Point& pos, Dir dir, bool enable_json);
+	void update_board_texture(void); // ボードのテクスチャを更新
 	//////////////////////////////////////////////////////////////
 	// draw
 	void draw_board(void) const;  // ピース群の描画
@@ -79,6 +81,7 @@ void Board::initialize(const Array<Array<int>>& board) {
 			set_piece(num, row, col);
 		}
 	}
+	update_board_texture();
 }
 void Board::initialize_noshuffle(const Array<Array<int>>& board){
 	set_piece_colors();
@@ -92,6 +95,7 @@ void Board::initialize_noshuffle(const Array<Array<int>>& board){
 			set_piece(board[row][col], row, col);
 		}
 	}
+	update_board_texture();
 }
 void Board::initialize(const FilePath& path) {
 	set_piece_colors();
@@ -116,6 +120,7 @@ void Board::initialize(const FilePath& path) {
 		}
 	}
 	this->is_selected.resize(height, Array<bool>(width, false));
+	update_board_texture();
 }
 
 
@@ -249,16 +254,24 @@ void Board::move(int p, const Point& pos, Dir dir, bool enable_json) {
 		}
 	}
 	this->cnt_move++;
+	update_board_texture();
 	// 行動ログを追加
 	if(enable_json) this->datawriter.add_op(patterns.get_pattern_idx(), pos, dir);
 }
-
-void Board::draw_board(void) const {
+void Board::update_board_texture(void) {
+	Image board_image{ (size_t)this->width, (size_t)this->height };
 	for (int row = 0; row < this->height; row++) {
 		for (int col = 0; col < this->width; col++) {
-			RectF{ calc_piece_pos(row, col), this->piece_size }.draw(get_piece_color(get_piece(row, col)));
+			board_image[row][col] = get_piece_color(get_piece(row, col));
 		}
 	}
+	this->board_dynamic_texture.fill(board_image);
+}
+
+void Board::draw_board(void) const {
+	this->board_dynamic_texture
+		.resized(this->piece_size * this->width, this->piece_size * this->height)
+		.draw(this->calc_piece_pos(0,0));
 }
 void Board::draw_selected(void) const {
 	for (int row = 0; row < this->height; row++) {
@@ -417,6 +430,7 @@ void BoardAuto::initialize(const Array<Array<int>>& board) {
 		this->datawriter.add_op(p, Point{ x,y }, (Dir)s);
 	}
 	this->datawriter.get_json().save(U"./tmp.json");
+	update_board_texture();
 }
 
 void BoardAuto::initialize(const Array<Array<int>>& board_start, const Array<Array<int>>& board_goal) {
@@ -464,6 +478,7 @@ void BoardAuto::initialize(const Array<Array<int>>& board_start, const Array<Arr
 		this->datawriter.add_op(p, Point{ x,y }, (Dir)s);
 	}
 	this->datawriter.get_json().save(U"./answer.json");
+	update_board_texture();
 }
 
 JSON BoardAuto::get_json(void) const {
