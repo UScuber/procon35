@@ -1,3 +1,7 @@
+#include <cmath>
+#include <queue>
+#include <omp.h>
+#include <bitset>
 #include "board.hpp"
 
 using namespace std;
@@ -458,6 +462,269 @@ bool solve_pos_c(vector<Operation>& ops, int row, int col, Board& state_now, con
   }
   return false;
 }
+
+
+bool check_all_bottom(const int row, const Board &state_now, const Board &state_goal){
+  const int h = state_now.height(), w = state_now.width();
+  for(int j = 0; j < w; j++){
+    bool ok = false;
+    for(int i = row; i < h; i++){
+      if(state_now[i][j] == state_goal[h-row-1][j]){
+        ok = true;
+        break;
+      }
+    }
+    if(!ok) return false;
+  }
+  return true;
+}
+
+
+inline int calc_dp(const int row, int st_j, const Board& state_now, const Board& state_goal, const int ahead_num){
+  const int h = state_now.height(), w = state_now.width();
+
+  bitset<256> used[256];
+  uchar que[256][256];
+  uchar *que_s[256], *que_t[256];
+
+  int dp[256+1], prev[256+1], prev2[256+1];
+
+  int result = 0;
+
+  for(int itr = 0; itr < ahead_num; itr++){
+    for(int i = row; i < h; i++){
+      que_s[i] = que_t[i] = que[i];
+      for(int j = st_j; j < w; j++){
+        if(used[i][j] || state_now[i][j] != state_goal[h-row-1-itr][j]) continue;
+        if(j == w-1 || used[i][j+1] || state_now[i][j+1] != state_goal[h-row-1-itr][j+1]) *que_t[i]++ = j;
+      }
+    }
+
+    std::fill(dp + st_j, dp + w+1, 1000000000);
+    dp[st_j] = 0;
+    prev[st_j] = prev2[st_j] = -1;
+    for(int j = st_j; j < w; j++){
+      int len = 0;
+      for(int i = h-1; i >= row; i--){
+        if(used[i][j] || state_now[i][j] != state_goal[h-row-1-itr][j]) continue;
+        // const int v = que[i].front() - j + 1;
+        const int v = *que_s[i] - j + 1;
+        while(len < v){
+          len++;
+          const int b = 1 << __lg(i-row+1);
+          const int val = (i == h-1) ? 0 : (len + b-1) / b;
+          if(dp[j + len] > dp[j] + val){
+            dp[j + len] = dp[j] + val;
+            prev[j + len] = j;
+            prev2[j + len] = i;
+          }
+        }
+        while(que_s[i] != que_t[i] && *que_s[i] <= j) que_s[i]++;
+      }
+      dp[j + 1] = min(dp[j + 1], dp[j] + 100); // 何もない場合
+    }
+    assert(dp[w] <= 100000000);
+    // int j = w;
+    // while(j > st_j){
+    //   for(int k = prev[j]; k < j; k++){
+    //     assert(state_now[prev2[j]][k] == state_goal[h-row-1-itr][k]);
+    //     used[prev2[j]][k] = 1;
+    //   }
+    //   j = prev[j];
+    // }
+    if(!itr) result += dp[w];
+    // else result += dp[w] / 10;
+    // result += dp[w] * (4 - itr) * (4 - itr);
+    break;
+  }
+  return result;
+  // return dp[w];
+}
+
+
+// z[i]=256となる場合、overflowします
+void z_algo(const uchar s[257*257], const int n, uchar z[257*257]){
+  z[0] = n < 256 ? n : 255;
+  int i = 1, j = 0;
+  while(i < n){
+    while(i + j < n && s[j] == s[i + j]) j++;
+    z[i] = j;
+    if(!j){
+      i++;
+      continue;
+    }
+    int k = 1;
+    while(k < j && z[k] + k < j) z[i + k++] = z[k];
+    i += k;
+    j -= k;
+  }
+}
+
+int evaluate_board(const int row, const Board &state_now, const Board &state_goal){
+  const int h = state_now.height();
+  const int w = state_now.width();
+
+  int st_j = 0;
+  while(state_now[h-1][st_j] == state_goal[h-row-1][st_j]) st_j++;
+
+  if(st_j >= w) return -1000000000;
+
+  bitset<256> used[256];
+  uchar s[257*257], z[257*257];
+  int result = -st_j * st_j * 300; // 初期でそろっているやつ
+
+  for(int iter = 0; ; iter++){
+    const int ulen = w - st_j; // 右下の未確定の場所の長さ
+    for(int j = 0; j < ulen; j++){
+      s[j] = state_goal[h-row-1][st_j + j];
+    }
+    s[ulen] = 5; // split
+    for(int i = row; i < h-1; i++){
+      for(int j = 0; j < w; j++){
+        s[(i-row)*(w+1) + ulen+1 + j] = !used[i][j] ? state_now[i][j] : 4;
+      }
+      s[(i-row)*(w+1) + ulen+1 + w] = 4; // split
+    }
+    // 右下に存在するピース
+    for(int j = 0; j < ulen; j++){
+      s[(h-1-row)*(w+1) + ulen+1 + j] = state_now[h-1][st_j + j];
+    }
+
+    z_algo(s, (h-1-row)*(w+1) + ulen*2+1, z);
+
+    int best_score = 1000000000;
+    int best_y = -1, best_x = -1;
+
+    for(int i = h-2; i >= row; i--){
+      for(int j = 0; j < w; j++){
+        const int l = z[(i-row)*(w+1) + ulen+1 + j];
+        const int num = 2 - (st_j == j);
+        if(!l) continue;
+        // const int score = -l*l / num;
+        const int score = -l / num;
+        if(best_score > score){
+          best_score = score;
+          best_y = i;
+          best_x = j;
+        }
+      }
+    }
+    // 右下
+    for(int j = 0; j < ulen; j++){
+      const int l = z[(h-1-row)*(w+1) + ulen+1 + j];
+      const int num = 3;
+      if(!l) continue;
+      // const int score = -l*l / num;
+      const int score = -l / num;
+      if(best_score > score){
+        best_score = score;
+        best_y = h-1;
+        best_x = j; // st_jからの相対位置
+      }
+    }
+
+    if(best_y == -1) return 1000000000;
+    if(best_y == -1) cerr << "\n" << row << " " << iter << "\n";
+    assert(best_y != -1);
+
+    const int len = z[(best_y-row)*(w+1) + ulen+1 + best_x];
+    for(int j = 0; j < len; j++){
+      used[best_y][best_x + j] = 1;
+    }
+    const bool above = st_j == best_x;
+    st_j += len;
+    int new_len = len;
+    while(state_now[h-1][st_j] == state_goal[h-row-1][st_j]) st_j++, new_len++;
+
+    // iterが大きいほどスコアが反映されにくくなる
+    const int pr = pow(0.95, iter) * 100;
+    // result += (-new_len * new_len / (2 - above)) * pr;
+    result += (2 - above) * pr;
+    // cerr << best_y << "," << len << "  ";
+
+    // best_y == h-1の時は盤面がずれて評価できない可能性があるので初めで打ち切る
+    if(st_j >= w || best_y == h-1) break;
+  }
+
+  return result;
+}
+
+
+void solve_row_effi_roughly(Operations& ops, const int row, Board& state_now, const Board& state_goal){
+  const int h = state_now.height(), w = state_now.width();
+
+  while(true){
+    int st_j = 0;
+    while(state_now[h-1][st_j] == state_goal[h-row-1][st_j]) st_j++;
+
+    if(st_j >= w) break;
+
+    int best_score = 1000000000;
+    Operation best(1U << 31);
+
+    // move none
+    best_score = evaluate_board(row, state_now, state_goal) + 1;
+
+    Operation best_op[256*2+1];
+    int best_scores[256*2+1];
+    fill(best_scores, best_scores + 256*2+1, 1000000000);
+
+    #pragma omp parallel for
+    for(int j = 0; j < w*2+1; j++){
+      for(int i = row; i < h; i++){
+        for(int k = 0; k < (int)cutting_dies.size(); k++){
+          const int sy = i - cutting_dies[k].height() + 1 + ((k > 0 && (k-1) % 3 == 1) ? 1 : 0);
+          const int sx = j - (w-1);
+          if(sy < row) continue; // すでにそろえた行と衝突する
+          if(sx + cutting_dies[k].width() <= 0) continue; // 左に行きすぎ
+          for(const Dir dir : { Dir::U, Dir::L, Dir::R }){
+            auto tmp_state = state_now;
+            tmp_state.slide(cutting_dies[k], sy, sx, dir);
+            const int score = evaluate_board(row, tmp_state, state_goal);
+            if(score < best_scores[j]){
+              // cerr << st_j << " ";
+              best_scores[j] = score;
+              best_op[j] = Operation(k, sy, sx, dir);
+            }
+          }
+        }
+      }
+    }
+
+    for(int j = 0; j < w*2+1; j++){
+      if(best_scores[j] < best_score){
+        best_score = best_scores[j];
+        best = best_op[j];
+      }
+    }
+
+    assert(best_score < 1000000000);
+
+    if(best != Operation(1U << 31)){
+      ops.push_back(best);
+      state_now.slide(best);
+    }else{
+      cerr << "\n";
+      cerr << "row: " << row << "\n";
+      state_now.debug();
+      cerr << "\n";
+      state_goal.debug();
+      cerr << "\n";
+      assert(false);
+    }
+    cerr << best_score << " ";
+  }
+
+  for(int j = 0; j < w; j++){
+    assert(state_now[h-1][j] == state_goal[h-row-1][j]);
+  }
+  ops.push_back({KATA_MM, h - 1, 0, Dir::D});
+  state_now.slide(ops.back());
+  cerr << row << "finished\n";
+}
+
+
+
 void solve_row(vector<Operation>& ops, int row, Board& state_now, const Board& state_goal){
   const int h = state_now.height(), w = state_now.width();
   vector<bool> used(w);
@@ -476,6 +743,10 @@ void solve_row(vector<Operation>& ops, int row, Board& state_now, const Board& s
     state_now.slide(cutting_dies[KATA_MM], h - 1, 0, Dir::D);
     return;
   }
+
+  solve_row_effi_roughly(ops, row, state_now, state_goal);
+  return;
+
   int cnt = 0;
   while(cnt < w){
     for(int i = 0;i + 1 < w;i++){
