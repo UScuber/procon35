@@ -434,8 +434,6 @@ void BoardAuto::initialize(const Array<Array<int>>& board) {
 }
 
 void BoardAuto::initialize(const Array<Array<int>>& board_start, const Array<Array<int>>& board_goal) {
-	Console << board_start;
-	Console << board_goal;
 	set_piece_colors();
 	this->child = ChildProcess{ U"./solver.exe", Pipe::StdInOut };
 	if (not child) throw Error{ U"Failed to create a process" };
