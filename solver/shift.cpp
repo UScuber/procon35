@@ -649,13 +649,94 @@ int evaluate_board(const int row, const Board &state_now, const Board &state_goa
   return result;
 }
 
+// 一定以上の長さのピースがあるうちは即採用する
+void solve_row_clearly(Operations& ops, const int row, Board& state_now, const Board& state_goal, int limit){
+  const int h = state_now.height(), w = state_now.width();
+
+  while(true){
+    int st_j = 0;
+    while(st_j < w && state_now[h-1][st_j] == state_goal[h-row-1][st_j]) st_j++;
+    
+    if(st_j == w) return;
+    
+    uchar s[257*257], z[257*257];
+    const int ulen = w - st_j; // 右下の未確定の場所の長さ
+    for(int j = 0; j < ulen; j++){
+      s[j] = state_goal[h-row-1][st_j + j];
+    }
+    s[ulen] = 5; // split
+    for(int i = row; i < h-1; i++){
+      for(int j = 0; j < w; j++){
+        s[(i-row)*(w+1) + ulen+1 + j] = state_now[i][j];
+      }
+      s[(i-row)*(w+1) + ulen+1 + w] = 4; // split
+    }
+
+    z_algo(s, (h-1-row)*(w+1) + ulen*2+1, z);
+    
+    bool moved = false;
+    for(int i = row; i < h-1; i++){
+      int lr_max_size = h - 1 - row; // 左右移動できる最大の幅
+      int lr_kata_id = 0; // lr_max_size 以下最大の抜き型
+      if(lr_max_size > 1){
+        lr_kata_id = 1;
+        lr_max_size /= 2;
+        while(lr_max_size > 1){
+          lr_kata_id += 3;
+          lr_max_size /= 2;
+        }
+      }
+      int lr_kata_size = cutting_dies[lr_kata_id].height();
+
+      int u_max_size = i - row + 1; // 上下移動できる最大の幅
+      int u_kata_id = 0; // u_max_size 以下最大の抜き型
+      if(u_max_size > 1){
+        u_kata_id = 1;
+        u_max_size /= 2;
+        while(u_max_size > 1){
+          u_kata_id += 3;
+          u_max_size /= 2;
+        }
+      }
+      int u_kata_size = cutting_dies[u_kata_id].height();
+
+      for(int j = 0; j < w; j++){
+        int step = 1 + (j != st_j); // かかる手数
+        int len  = min((int)z[(i-row)*(w+1) + ulen+1 + j], u_kata_size); // 長さ
+        if(len / step > limit){ // 十分大きなピース群を発見
+          int nuki_row = (i + lr_kata_size <= h - 1 ? i : row); // 左右の抜き型を使う行
+          if(abs(j - st_j) > lr_kata_size){
+            continue;
+          }
+          if(j < st_j){
+            // 右から st_j - j 行を左へもっていく
+            ops.push_back({lr_kata_id, nuki_row, w - abs(st_j - j), Dir::R});
+            state_now.slide(cutting_dies[lr_kata_id], nuki_row, w - abs(st_j - j), Dir::R);
+          }else if(st_j < j){
+            // 左から j - st_j 行を右へもっていく
+            ops.push_back({lr_kata_id, nuki_row, abs(st_j - j) - lr_kata_size, Dir::L});
+            state_now.slide(cutting_dies[lr_kata_id], nuki_row, abs(st_j - j) - lr_kata_size, Dir::L);
+          }
+          ops.push_back({u_kata_id, i + 1 - u_kata_size, st_j, Dir::U});
+          state_now.slide(cutting_dies[u_kata_id], i + 1 - u_kata_size, st_j, Dir::U);
+          moved = true;
+          break;
+        }
+      }
+      if(moved)break;
+    }
+    if(!moved) return; // 動かせなかったとき
+  }
+}
 
 void solve_row_effi_roughly(Operations& ops, const int row, Board& state_now, const Board& state_goal){
   const int h = state_now.height(), w = state_now.width();
 
   while(true){
     int st_j = 0;
-    while(state_now[h-1][st_j] == state_goal[h-row-1][st_j]) st_j++;
+    while(st_j < w && state_now[h-1][st_j] == state_goal[h-row-1][st_j]) st_j++;
+
+    solve_row_clearly(ops, row, state_now, state_goal, 3 * (w - st_j) / w);
 
     if(st_j >= w) break;
 
@@ -677,7 +758,7 @@ void solve_row_effi_roughly(Operations& ops, const int row, Board& state_now, co
           const int sx = j - (w-1);
           if(sy < row) continue; // すでにそろえた行と衝突する
           if(sx + cutting_dies[k].width() <= 0) continue; // 左に行きすぎ
-          for(const Dir dir : { Dir::U, Dir::L, Dir::R }){
+          for(const Dir dir : { Dir::L, Dir::R }){
             auto tmp_state = state_now;
             tmp_state.slide(cutting_dies[k], sy, sx, dir);
             const int score = evaluate_board(row, tmp_state, state_goal);
