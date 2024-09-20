@@ -1,7 +1,8 @@
 ﻿# pragma once
 # include <Siv3D.hpp>
 # include "Patterns.hpp"
-# include "Slide.hpp"
+// # include "Slide.hpp"
+# include "BitBoard.hpp"
 # include "Data.hpp"
 
 enum class Anchor {
@@ -14,7 +15,7 @@ public:
 	// field
 	int height, width;	  // ボードの縦横
 	double piece_size = 15;	 // 一つのピースの描画サイズ
-	Array<Array<int>> board;  // 2次元配列のボードz
+	BitBoard board = BitBoard(0, 0);  // 2次元配列のボード
 	Patterns patterns;  // 型抜きの配列
 	Array<Color> piece_colors = {Palette::Red, Palette::Green, Palette::Blue, Palette::Black};
 	Array<Array<bool>> is_selected;  // ボード上のピースが選択されてるか
@@ -30,8 +31,8 @@ public:
 	DynamicTexture board_dynamic_texture; // ボード描画用のダイナミックテクスチャ
 	//////////////////////////////////////////////////////////////
 	// method
-	void initialize(const Array<Array<int>>& board); // 初期化
-	void initialize_noshuffle(const Array<Array<int>>& board); // 初期化
+	void initialize(const BitBoard& board); // 初期化
+	void initialize_noshuffle(const BitBoard& board); // 初期化
 	void initialize(const FilePath& path);
 	bool is_in_board(const Point& pos) const;  // ボード上に収まっているか
 	bool is_in_board(const int y, const int x) const;
@@ -40,7 +41,7 @@ public:
 	void set_selected_pos(const Point& pos);  // 選択ピースの座標取得
 	Point get_selected_pos(void) const;  // 選択ピースの座標取得
 	Optional<Point> which_hover(void) const;  // どこのピースがホバーされているかを返す
-	Array<Array<int>> get_board(void) const;  // ボードを取得する
+	BitBoard get_board(void) const;  // ボードを取得する
 	int get_piece(const int y, const int x) const; // 座標を指定してピースを取得する
 	void set_piece(const int num, const int y, const int x);  // 座標を指定してピースをセット
 	Color get_piece_color(const int num) const;  // ピースの番号から色を取得する
@@ -63,12 +64,12 @@ public:
 	void draw_details(const Board &board) const;  // 詳細表示
 };
 
-void Board::initialize(const Array<Array<int>>& board) {
+void Board::initialize(const BitBoard& board) {
 	set_piece_colors();
-	this->height = board.size();
-	this->width = board.front().size();
+	this->height = board.height();
+	this->width = board.width();
 	this->piece_size = 480.0 / Max(this->height, this->width);
-	this->board.resize(height, Array<int>(width));
+	this->board = BitBoard(height, width);
 	this->is_selected.resize(height, Array<bool>(width, false));
 	Array<int> tmp;
 	for (int i = 0; i < height * width; i++) {
@@ -83,12 +84,12 @@ void Board::initialize(const Array<Array<int>>& board) {
 	}
 	update_board_texture();
 }
-void Board::initialize_noshuffle(const Array<Array<int>>& board){
+void Board::initialize_noshuffle(const BitBoard& board){
 	set_piece_colors();
-	this->height = board.size();
-	this->width = board.front().size();
+	this->height = board.height();
+	this->width = board.width();
 	this->piece_size = 480.0 / Max(this->height, this->width);
-	this->board.resize(height, Array<int>(width));
+	this->board = BitBoard(height, width);
 	this->is_selected.resize(height, Array<bool>(width, false));
 	for (int row = 0; row < this->height; row++) {
 		for (int col = 0; col < this->width; col++) {
@@ -113,7 +114,7 @@ void Board::initialize(const FilePath& path) {
 	this->height = tmp.size();
 	this->width = tmp.front().size();
 	this->piece_size = 480.0 / Max(this->height, this->width);
-	this->board.resize(height, Array<int>(width));
+	this->board = BitBoard(height, width);
 	for (int row = 0; row < this->height; row++) {
 		for (int col = 0; col < this->width; col++) {
 			set_piece(tmp[row][col], row, col);
@@ -132,9 +133,9 @@ bool Board::is_in_board(const int y, const int x) const {
 }
 Point Board::calc_lefttop(void) const{
 	if (this->anchor == Anchor::Lefttop) return this->selected_pos;
-	else if (this->anchor == Anchor::Leftbottom) return  this->selected_pos - Point{ 0, this->patterns.get_pattern().size() - 1 };
-	else if (this->anchor == Anchor::Rightbottom) return  this->selected_pos - Point{ this->patterns.get_pattern().front().size() - 1, this->patterns.get_pattern().size() - 1 };
-	else if (this->anchor == Anchor::Righttop) return this->selected_pos - Point{ this->patterns.get_pattern().front().size() - 1, 0 };
+	else if (this->anchor == Anchor::Leftbottom) return  this->selected_pos - Point{ 0, this->patterns.get_pattern().height() - 1 };
+	else if (this->anchor == Anchor::Rightbottom) return  this->selected_pos - Point{ this->patterns.get_pattern().width() - 1, this->patterns.get_pattern().height() - 1 };
+	else if (this->anchor == Anchor::Righttop) return this->selected_pos - Point{ this->patterns.get_pattern().width() - 1, 0 };
 }
 void Board::set_selected_pos(const Point& pos) {
 	this->selected_pos = pos;
@@ -150,7 +151,7 @@ Optional<Point> Board::which_hover(void) const {
 	if (is_in_board(res)) return res;
 	else return none;
 }
-Array<Array<int>> Board::get_board(void) const {
+BitBoard Board::get_board(void) const {
 	return this->board;
 }
 int Board::get_piece(const int y, const int x) const {
@@ -222,8 +223,8 @@ void Board::select_piece(void) {
 	// 選択状態にする
 	this->is_selected.clear();
 	this->is_selected.resize(this->height, Array<bool>(this->width, false));
-	for (int row = pos.y; row < pos.y + (int)pattern.size(); row++) {
-		for (int col = pos.x; col < pos.x + (int)pattern.front().size(); col++) {
+	for (int row = pos.y; row < pos.y + (int)pattern.height(); row++) {
+		for (int col = pos.x; col < pos.x + (int)pattern.width(); col++) {
 			if (not is_in_board(row, col)) continue;
 			this->is_selected[row][col] = pattern[row - pos.y][col - pos.x];
 		}
@@ -246,7 +247,9 @@ void Board::move(int p, int x, int y, Dir dir, bool enable_json){
 }
 void Board::move(int p, const Point& pos, Dir dir, bool enable_json) {
 	// スライドさせる
-	Array<Array<int>> slided = slide(get_board(), this->patterns.get_pattern(p), pos, dir);
+	//Array<Array<int>> slided = slide(get_board(), this->patterns.get_pattern(p), pos, dir);
+	BitBoard slided = get_board();
+	slided.slide(this->patterns.get_pattern(p), pos.y, pos.x, dir);
 	// スライド後の番号をピースに適用
 	for (int row = 0; row < this->height; row++) {
 		for (int col = 0; col < this->width; col++) {
@@ -371,8 +374,8 @@ private:
 	void update_board(void);
 	void update_gui(void);
 public:
-	void initialize(const Array<Array<int>>& board);
-	void initialize(const Array<Array<int>>& board_start, const Array<Array<int>>& board_goal);
+	void initialize(const BitBoard& board);
+	void initialize(const BitBoard& board_start, const BitBoard& board_goal);
 	JSON get_json(void) const;
 	BoardAuto(void) {};
 	void update(void);
@@ -381,14 +384,14 @@ public:
 Vec2 BoardAuto::calc_piece_pos(int row, int col) const {
 	return Vec2{ col * this->piece_size, row * this->piece_size };
 }
-void BoardAuto::initialize(const Array<Array<int>>& board) {
+void BoardAuto::initialize(const BitBoard& board) {
 	set_piece_colors();
 	this->child = ChildProcess{ U"./solver.exe", Pipe::StdInOut };
 	if (not child) throw Error{ U"Failed to create a process" };
-	this->height = board.size();
-	this->width = board.front().size();
+	this->height = board.height();
+	this->width = board.width();
 	this->piece_size = 480.0 / Max(this->height, this->width);
-	this->board.resize(height, Array<int>(width));
+	this->board = BitBoard(height, width);
 	this->board_origin.resize(height, Array<int>(width));
 	this->is_selected.resize(height, Array<bool>(width, false));
 	Array<int> tmp;
@@ -433,14 +436,14 @@ void BoardAuto::initialize(const Array<Array<int>>& board) {
 	update_board_texture();
 }
 
-void BoardAuto::initialize(const Array<Array<int>>& board_start, const Array<Array<int>>& board_goal) {
+void BoardAuto::initialize(const BitBoard& board_start, const BitBoard& board_goal) {
 	set_piece_colors();
 	this->child = ChildProcess{ U"./solver.exe", Pipe::StdInOut };
 	if (not child) throw Error{ U"Failed to create a process" };
-	this->height = board_start.size();
-	this->width = board_start.front().size();
+	this->height = board_start.height();
+	this->width = board_start.width();
 	this->piece_size = 480.0 / Max(this->height, this->width);
-	this->board.resize(height, Array<int>(width));
+	this->board = BitBoard(height, width);
 	this->board_origin.resize(height, Array<int>(width));
 	this->is_selected.resize(height, Array<bool>(width, false));
 	for (int row = 0; row < this->height; row++) {

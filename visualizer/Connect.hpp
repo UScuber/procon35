@@ -97,5 +97,3 @@ Array<Array<int>> Connect::get_problem_board_goal(void) const {
 	}
 	return res;
 }
-
-

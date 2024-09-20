@@ -1,6 +1,7 @@
 ﻿#pragma once
 # include <Siv3D.hpp>
-# include "Slide.hpp"
+# include "Common.hpp"
+
 
 using App = SceneManager<String>;
 

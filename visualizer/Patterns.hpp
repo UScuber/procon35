@@ -1,8 +1,11 @@
 ﻿# pragma once
+
 # include <Siv3D.hpp>
+# include "BitBoard.hpp"
+
 
 // 一つの型抜き
-using Pattern = Array<Array<bool>>;
+using Pattern = BitBoard;
 class Patterns {
 private:
 	const Array<int> pattern_sizes = { 1,2,4,8,16,32,64,128,256 };
@@ -32,20 +35,20 @@ Patterns::Patterns(void) {
 	// 定型抜き型の生成
 	for (int size : pattern_sizes) {
 		// 全要素1
-		patterns << (Array<Array<bool>>(size, Array<bool>(size, true)));
+		patterns << Array<Array<int>>(size, Array<int>(size, 1));
 		if (size == 1) continue;
 		// 偶数行1
-		Array<Array<bool>> tmp;
+		Array<Array<int>> tmp;
 		for (int row = 0; row < size; row++) {
-			tmp << (Array<bool>(size, (row + 1) % 2));
+			tmp << Array<int>(size, (row + 1) % 2);
 		}
 		patterns << tmp;
 		// 奇数行1
-		Array<bool> ttmp;
+		Array<int> ttmp;
 		for (int col = 0; col < size; col++) {
 			ttmp << (col + 1) % 2;
 		}
-		patterns << Array<Array<bool>>(size, ttmp);
+		patterns << Array<Array<int>>(size, ttmp);
 	}
 	// 抜き型選択ボタンの四角形生成
 	Size size(Scene::Size().x / (int)pattern_sizes.size(), Scene::Size().y / 15);
@@ -93,10 +96,10 @@ void Patterns::select_key(void) {
 		if (this->selected_idx % 3 == 0) this->selected_idx -= 2;
 		else this->selected_idx++;
 	}else if (KeyA.down()) {
-		if (get_pattern().size() == 2) this->selected_idx = 0;
+		if (get_pattern().height() == 2) this->selected_idx = 0;
 		else this->selected_idx -= 3;
 	}else if (KeyD.down()) {
-		if (get_pattern().size() == 256) this->selected_idx = 0;
+		if (get_pattern().height() == 256) this->selected_idx = 0;
 		else this->selected_idx += 3;
 	}
 }
