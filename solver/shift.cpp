@@ -560,7 +560,7 @@ void z_algo(const uchar s[257*257], const int n, uchar z[257*257]){
   }
 }
 
-int evaluate_board(const int row, const Board &state_now, const Board &state_goal){
+double evaluate_board(const int row, const Board &state_now, const Board &state_goal){
   const int h = state_now.height();
   const int w = state_now.width();
 
@@ -569,9 +569,11 @@ int evaluate_board(const int row, const Board &state_now, const Board &state_goa
 
   if(st_j >= w) return -1000000000;
 
-  bitset<256> used[256];
-  uchar s[257*257], z[257*257];
-  int result = -st_j * st_j * 300; // 初期でそろっているやつ
+  // bitset<256> used[256];
+  // uchar s[257*257], z[257*257];
+  vector<bitset<256>> used(256);
+  vector<uchar> s(257*257), z(257*257);
+  int result = -st_j * 500000.0 / w; // 初期でそろっているやつ
 
   for(int iter = 0; ; iter++){
     const int ulen = w - st_j; // 右下の未確定の場所の長さ
@@ -590,23 +592,24 @@ int evaluate_board(const int row, const Board &state_now, const Board &state_goa
       s[(h-1-row)*(w+1) + ulen+1 + j] = state_now[h-1][st_j + j];
     }
 
-    z_algo(s, (h-1-row)*(w+1) + ulen*2+1, z);
+    z_algo(s.data(), (h-1-row)*(w+1) + ulen*2+1, z.data());
 
-    int best_score = 1000000000;
+    double best_score = 1000000000, second_score = 1000000000;
     int best_y = -1, best_x = -1;
 
     for(int i = h-2; i >= row; i--){
       for(int j = 0; j < w; j++){
         const int l = z[(i-row)*(w+1) + ulen+1 + j];
-        const int num = 2 - (st_j == j);
+        const int num = 1 + (st_j != j);
         if(!l) continue;
         // const int score = -l*l / num;
-        const int score = -l / num;
+        const double score = -l*l * 100.0 / num + abs(j - st_j);
         if(best_score > score){
+          second_score = best_score;
           best_score = score;
           best_y = i;
           best_x = j;
-        }
+        }else if(second_score > score) second_score = score;
       }
     }
     // 右下
@@ -615,12 +618,12 @@ int evaluate_board(const int row, const Board &state_now, const Board &state_goa
       const int num = 3;
       if(!l) continue;
       // const int score = -l*l / num;
-      const int score = -l / num;
+      const double score = -l*l * 100 * pow(0.9, abs(j - st_j));
       if(best_score > score){
         best_score = score;
         best_y = h-1;
         best_x = j; // st_jからの相対位置
-      }
+      }else if(second_score > score) second_score = score;
     }
 
     if(best_y == -1) return 1000000000;
@@ -637,9 +640,11 @@ int evaluate_board(const int row, const Board &state_now, const Board &state_goa
     while(state_now[h-1][st_j] == state_goal[h-row-1][st_j]) st_j++, new_len++;
 
     // iterが大きいほどスコアが反映されにくくなる
-    const int pr = pow(0.95, iter) * 100;
-    // result += (-new_len * new_len / (2 - above)) * pr;
-    result += (2 - above) * pr;
+    const double pr = pow(0.8, iter) * 100;
+    result += (-new_len / (2.0 - above)) * pr;
+    // result += (2 - above) * pr / new_len;
+    result += abs(st_j - best_x) * pr / 50;
+    // result += second_score * pr / 100 / 100;
     // cerr << best_y << "," << len << "  ";
 
     // best_y == h-1の時は盤面がずれて評価できない可能性があるので初めで打ち切る
@@ -732,11 +737,14 @@ void solve_row_clearly(Operations& ops, const int row, Board& state_now, const B
 void solve_row_effi_roughly(Operations& ops, const int row, Board& state_now, const Board& state_goal){
   const int h = state_now.height(), w = state_now.width();
 
+  int prev_score = -1;
   while(true){
     int st_j = 0;
     while(st_j < w && state_now[h-1][st_j] == state_goal[h-row-1][st_j]) st_j++;
 
     solve_row_clearly(ops, row, state_now, state_goal, 3 * (w - st_j) / w);
+
+    while(st_j < w && state_now[h-1][st_j] == state_goal[h-row-1][st_j]) st_j++;
 
     if(st_j >= w) break;
 
@@ -744,7 +752,7 @@ void solve_row_effi_roughly(Operations& ops, const int row, Board& state_now, co
     Operation best(1U << 31);
 
     // move none
-    best_score = evaluate_board(row, state_now, state_goal) + 1;
+    best_score = evaluate_board(row, state_now, state_goal);
 
     Operation best_op[256*2+1];
     int best_scores[256*2+1];
@@ -752,16 +760,23 @@ void solve_row_effi_roughly(Operations& ops, const int row, Board& state_now, co
 
     #pragma omp parallel for
     for(int j = 0; j < w*2+1; j++){
+      Board *tmp_state = new Board(0, 0); // 盤面を愚直に持つとstackoverflowした
+
       for(int i = row; i < h; i++){
         for(int k = 0; k < (int)cutting_dies.size(); k++){
-          const int sy = i - cutting_dies[k].height() + 1 + ((k > 0 && (k-1) % 3 == 1) ? 1 : 0);
+          // const int sy = i - cutting_dies[k].height() + 1 + ((k > 0 && (k-1) % 3 == 1) ? 1 : 0);
+          const int sy = i;
           const int sx = j - (w-1);
-          if(sy < row) continue; // すでにそろえた行と衝突する
+          // if(sy < row) continue; // すでにそろえた行と衝突する
           if(sx + cutting_dies[k].width() <= 0) continue; // 左に行きすぎ
-          for(const Dir dir : { Dir::L, Dir::R }){
-            auto tmp_state = state_now;
-            tmp_state.slide(cutting_dies[k], sy, sx, dir);
-            const int score = evaluate_board(row, tmp_state, state_goal);
+          // if(sx < st_j && sy + cutting_dies[k].height() - ((k > 0 && (k-1) % 3 == 1) ? 1 : 0) >= h-1) continue;
+          for(const Dir dir : { Dir::L, Dir::R, Dir::U }){
+            // auto tmp_state = state_now;
+            // tmp_state.slide(cutting_dies[k], sy, sx, dir);
+            // const int score = evaluate_board(row, tmp_state, state_goal);
+            *tmp_state = state_now;
+            tmp_state->slide(cutting_dies[k], sy, sx, dir);
+            const int score = evaluate_board(row, *tmp_state, state_goal);
             if(score < best_scores[j]){
               // cerr << st_j << " ";
               best_scores[j] = score;
@@ -770,6 +785,7 @@ void solve_row_effi_roughly(Operations& ops, const int row, Board& state_now, co
           }
         }
       }
+      delete tmp_state;
     }
 
     for(int j = 0; j < w*2+1; j++){
@@ -781,19 +797,26 @@ void solve_row_effi_roughly(Operations& ops, const int row, Board& state_now, co
 
     assert(best_score < 1000000000);
 
-    if(best != Operation(1U << 31)){
+    if(best != Operation(1U << 31) && prev_score != best_score){
       ops.push_back(best);
       state_now.slide(best);
+      prev_score = best_score;
     }else{
       cerr << "\n";
       cerr << "row: " << row << "\n";
+      cerr << "current\n";
       state_now.debug();
       cerr << "\n";
-      state_goal.debug();
+      cerr << "best slided\n";
+      state_now.slide(best);
+      state_now.debug();
+      cerr << "\n";
+      cerr << "goal row\n";
+      for(int j = 0; j < w; j++) cout << (int)state_goal[h-row-1][j];
       cerr << "\n";
       assert(false);
     }
-    cerr << best_score << " ";
+    cerr << best_score << "(" << ops.size() << ") ";
   }
 
   for(int j = 0; j < w; j++){
@@ -801,7 +824,7 @@ void solve_row_effi_roughly(Operations& ops, const int row, Board& state_now, co
   }
   ops.push_back({KATA_MM, h - 1, 0, Dir::D});
   state_now.slide(ops.back());
-  cerr << row << "finished\n";
+  cerr << row << "finished, " << ops.size() << "\n";
 }
 
 
