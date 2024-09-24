@@ -20,7 +20,6 @@ AutoScene::AutoScene(const InitData& init) : IScene{ init } {
 }
 void AutoScene::update(void) {
 	if (KeyP.down()) changeScene(U"SelectScene");
-	this->board_example.update(this->board_auto);
 	this->board_auto.update();
 }
 void AutoScene::draw(void) const {
@@ -40,13 +39,12 @@ public:
 };
 ConnectScene::ConnectScene(const InitData& init) : IScene{ init } {
 	this->connect.get_problem();
-	this->board_example.initialize_noshuffle(this->connect.get_problem_board_goal());
+	this->board_example.initialize(this->connect.get_problem_board_goal(), false);
 	this->board_auto.initialize(this->connect.get_problem_board_start(), this->connect.get_problem_board_goal());
 	this->connect.post_answer(this->board_auto.get_json());
 }
 void ConnectScene::update(void) {
 	if (KeyP.down()) changeScene(U"SelectScene");
-	this->board_example.update(this->board_auto);
 	this->board_auto.update();
 }
 void ConnectScene::draw(void) const {
@@ -90,7 +88,6 @@ void Main() {
 		if (not manager.update()) {
 			break;
 		}
-		Print << U"muho";
 	}
 }
 

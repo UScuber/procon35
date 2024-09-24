@@ -18,16 +18,14 @@ public:
 	BitBoard board = BitBoard(0, 0);  // 2次元配列のボード
 	Patterns patterns;  // 型抜きの配列
 	Array<Color> piece_colors = {Palette::Red, Palette::Green, Palette::Blue, Palette::Black};
-	Array<Array<bool>> is_selected;  // ボード上のピースが選択されてるか
 	int cnt_move = 0;  // 手数カウント
 	const Font font{ 50, Typeface::Bold };  // 詳細表示用フォント
 	DataWriter datawriter;  // 行動ログ保存用
 	DynamicTexture board_dynamic_texture; // ボード描画用のダイナミックテクスチャ
 	//////////////////////////////////////////////////////////////
 	// method
-	void initialize(const BitBoard& board); // 初期化
+	void initialize(const BitBoard& board, const bool is_shuffle = true); // 初期化
 	void initialize(const FilePath& path);
-	void initialize_noshuffle(const BitBoard& board); // 初期化
 	bool is_in_board(const Point& pos) const;  // ボード上に収まっているか
 	bool is_in_board(const int y, const int x) const;
 	virtual Vec2 calc_piece_pos(int row, int col) const = 0;  // ピースの座標計算
@@ -49,36 +47,26 @@ public:
 	void draw_details(const Board &board) const;  // 詳細表示
 };
 
-void Board::initialize(const BitBoard& board) {
+void Board::initialize(const BitBoard& board, const bool is_shuffle) {
 	set_piece_colors();
-	this->height = board.height();
-	this->width = board.width();
-	this->piece_size = 480.0 / Max(this->height, this->width);
+	this->height = board.height();  this->width = board.width();
+	this->piece_size = Min(Scene::Size().x/2.0, Scene::Size().y*0.8) / Max(this->height, this->width);
 	this->board = BitBoard(height, width);
-	this->is_selected.resize(height, Array<bool>(width, false));
-	Array<int> tmp;
-	for (int i = 0; i < height * width; i++) {
-		tmp << board[i / width][i % width];
-	}
-	tmp.shuffle();
-	for (int row = 0; row < this->height; row++) {
-		for (int col = 0; col < this->width; col++) {
-			int num = tmp[row * this->height + col];
-			set_piece(num, row, col);
+	if (is_shuffle) {
+		Array<int> tmp;
+		for (int i = 0; i < height * width; i++)  tmp << board[i / width][i % width];
+		tmp.shuffle();
+		for (int row = 0; row < this->height; row++) {
+			for (int col = 0; col < this->width; col++) {
+				int num = tmp[row * this->height + col];
+				set_piece(num, row, col);
+			}
 		}
-	}
-	update_board_texture();
-}
-void Board::initialize_noshuffle(const BitBoard& board){
-	set_piece_colors();
-	this->height = board.height();
-	this->width = board.width();
-	this->piece_size = 480.0 / Max(this->height, this->width);
-	this->board = BitBoard(height, width);
-	this->is_selected.resize(height, Array<bool>(width, false));
-	for (int row = 0; row < this->height; row++) {
-		for (int col = 0; col < this->width; col++) {
-			set_piece(board[row][col], row, col);
+	}else {
+		for (int row = 0; row < this->height; row++) {
+			for (int col = 0; col < this->width; col++) {
+				set_piece(board[row][col], row, col);
+			}
 		}
 	}
 	update_board_texture();
@@ -91,22 +79,10 @@ void Board::initialize(const FilePath& path) {
 	Array<Array<int>> tmp;
 	while (reader.readLine(line)) {
 		Array<int> row;
-		for (const char8& num : line) {
-			row << num - U'0';
-		}
+		for (const char8& num : line)  row << num - U'0';
 		tmp << row;
 	}
-	this->height = tmp.size();
-	this->width = tmp.front().size();
-	this->piece_size = 480.0 / Max(this->height, this->width);
-	this->board = BitBoard(height, width);
-	for (int row = 0; row < this->height; row++) {
-		for (int col = 0; col < this->width; col++) {
-			set_piece(tmp[row][col], row, col);
-		}
-	}
-	this->is_selected.resize(height, Array<bool>(width, false));
-	update_board_texture();
+	initialize(tmp, false);
 }
 
 
@@ -177,19 +153,7 @@ void Board::draw_board(void) const {
 		.draw(this->calc_piece_pos(0,0));
 }
 void Board::draw_details(const Board &board) const {
-	int cnt_lack = 0;
-	for (int row = 0; row < this->height; row++) {
-		for (int col = 0; col < this->width; col++) {
-			if (this->board[row][col] != board.get_piece(row, col)) {
-				cnt_lack++;
-			}
-		}
-	}
-	int piece_sum = this->height * this->width;
-	assert(this->height == board.height and this->width == board.width);
-	font(U"手数:{}"_fmt(cnt_move)).drawAt(Vec2{ Scene::Center().x, Scene::Size().y / 10 }, Palette::Black);
-	font(U"不一致数:{}"_fmt(cnt_lack)).drawAt(Vec2{ Scene::Center().x,  Scene::Size().y / 10 * 2 }, Palette::Black);
-	font(U"一致率:{:.0f}%"_fmt((double)(piece_sum - cnt_lack) / (double)piece_sum * 100.0)).drawAt(Vec2{ Scene::Center().x, Scene::Size().y / 10 * 3 }, Palette::Black);
+	font(U"手数:{}"_fmt(cnt_move)).drawAt(Vec2{ Scene::Center().x, Scene::Size().y * 14.0/ 15.0 }, Palette::Black);
 }
 
 
@@ -200,15 +164,10 @@ private:
 public:
 	//void initialize(const FilePath& path);
 	BoardExample(void) {};
-	void update(Board & board);
 	void draw(void) const;
 };
 Vec2 BoardExample::calc_piece_pos(int row, int col) const {
 	return Vec2{ Scene::Size().x - this->width * piece_size + col * this->piece_size, row * this->piece_size };
-}
-void BoardExample::update(Board& board) {
-	this->is_selected = board.is_selected;
-	return;
 }
 void BoardExample::draw(void) const {
 	draw_board();
@@ -244,7 +203,6 @@ void BoardAuto::initialize(const BitBoard& board) {
 	this->piece_size = 480.0 / Max(this->height, this->width);
 	this->board = BitBoard(height, width);
 	this->board_origin.resize(height, Array<int>(width));
-	this->is_selected.resize(height, Array<bool>(width, false));
 	Array<int> tmp;
 	for (int i = 0; i < height * width; i++) {
 		tmp << board[i / width][i % width];
@@ -296,7 +254,6 @@ void BoardAuto::initialize(const BitBoard& board_start, const BitBoard& board_go
 	this->piece_size = 480.0 / Max(this->height, this->width);
 	this->board = BitBoard(height, width);
 	this->board_origin.resize(height, Array<int>(width));
-	this->is_selected.resize(height, Array<bool>(width, false));
 	for (int row = 0; row < this->height; row++) {
 		for (int col = 0; col < this->width; col++) {
 			set_piece(board_start[row][col], row, col);
