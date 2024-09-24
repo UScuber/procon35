@@ -29,6 +29,7 @@ public:
 	bool is_in_board(const Point& pos) const;  // ボード上に収まっているか
 	bool is_in_board(const int y, const int x) const;
 	virtual Vec2 calc_piece_pos(int row, int col) const = 0;  // ピースの座標計算
+	double calc_piece_size(void);  // ピースの大きさを計算
 	BitBoard get_board(void) const;  // ボードを取得する
 	int get_piece(const int y, const int x) const; // 座標を指定してピースを取得する
 	void set_piece(const int num, const int y, const int x);  // 座標を指定してピースをセット
@@ -44,13 +45,13 @@ public:
 	//////////////////////////////////////////////////////////////
 	// draw
 	void draw_board(void) const;  // ピース群の描画
-	void draw_details(const Board &board) const;  // 詳細表示
+	void draw_details(void) const;  // 詳細表示
 };
 
 void Board::initialize(const BitBoard& board, const bool is_shuffle) {
 	set_piece_colors();
 	this->height = board.height();  this->width = board.width();
-	this->piece_size = Min(Scene::Size().x/2.0, Scene::Size().y*0.8) / Max(this->height, this->width);
+	this->piece_size = calc_piece_size();
 	this->board = BitBoard(height, width);
 	if (is_shuffle) {
 		Array<int> tmp;
@@ -100,6 +101,9 @@ int Board::get_piece(const int y, const int x) const {
 }
 void Board::set_piece(const int num, const int y, const int x) {
 	this->board[y][x] = num;
+}
+double Board::calc_piece_size(void) {
+	return Min(Scene::Size().x / 2.0, Scene::Size().y * 0.8) / Max(this->height, this->width);
 }
 Color Board::get_piece_color(const int num) const{
 	return this->piece_colors[num];
@@ -152,7 +156,7 @@ void Board::draw_board(void) const {
 		.resized(this->piece_size * this->width, this->piece_size * this->height)
 		.draw(this->calc_piece_pos(0,0));
 }
-void Board::draw_details(const Board &board) const {
+void Board::draw_details(void) const {
 	font(U"手数:{}"_fmt(cnt_move)).drawAt(Vec2{ Scene::Center().x, Scene::Size().y * 14.0/ 15.0 }, Palette::Black);
 }
 
@@ -185,11 +189,10 @@ private:
 	void update_gui(void);
 public:
 	void initialize(const BitBoard& board);
-	void initialize(const BitBoard& board_start, const BitBoard& board_goal);
 	JSON get_json(void) const;
 	BoardAuto(void) {};
 	void update(void);
-	void draw(const Board& board) const;
+	void draw(void) const;
 };
 Vec2 BoardAuto::calc_piece_pos(int row, int col) const {
 	return Vec2{ col * this->piece_size, row * this->piece_size };
@@ -198,9 +201,8 @@ void BoardAuto::initialize(const BitBoard& board) {
 	set_piece_colors();
 	this->child = ChildProcess{ U"./solver.exe", Pipe::StdInOut };
 	if (not child) throw Error{ U"Failed to create a process" };
-	this->height = board.height();
-	this->width = board.width();
-	this->piece_size = 480.0 / Max(this->height, this->width);
+	this->height = board.height();  this->width = board.width();
+	this->piece_size = calc_piece_size();
 	this->board = BitBoard(height, width);
 	this->board_origin.resize(height, Array<int>(width));
 	Array<int> tmp;
@@ -245,50 +247,7 @@ void BoardAuto::initialize(const BitBoard& board) {
 	update_board_texture();
 }
 
-void BoardAuto::initialize(const BitBoard& board_start, const BitBoard& board_goal) {
-	set_piece_colors();
-	this->child = ChildProcess{ U"./solver.exe", Pipe::StdInOut };
-	if (not child) throw Error{ U"Failed to create a process" };
-	this->height = board_start.height();
-	this->width = board_start.width();
-	this->piece_size = 480.0 / Max(this->height, this->width);
-	this->board = BitBoard(height, width);
-	this->board_origin.resize(height, Array<int>(width));
-	for (int row = 0; row < this->height; row++) {
-		for (int col = 0; col < this->width; col++) {
-			set_piece(board_start[row][col], row, col);
-		}
-	}
-	for (int row = 0; row < this->height; row++) {
-		for (int col = 0; col < this->width; col++) {
-			this->board_origin[row][col] = get_piece(row, col);
-		}
-	}
-	// プロセスに入力を与える
-	this->child.ostream() << this->height << std::endl << this->width << std::endl;
-	for (int row = 0; row < this->height; row++) {
-		String input = U"";
-		for (int col = 0; col < this->width; col++) {
-			input += Format(this->get_piece(row, col));
-		}
-		this->child.ostream() << input.narrow() << std::endl;
-	}
-	for (int row = 0; row < this->height; row++) {
-		String input = U"";
-		for (int col = 0; col < this->width; col++) {
-			input += Format(board_goal[row][col]);
-		}
-		this->child.ostream() << input.narrow() << std::endl;
-	}
-	int n, p, x, y, s;
-	this->child.istream() >> n;
-	for (int i = 0; i < n; i++) {
-		this->child.istream() >> p >> y >> x >> s;
-		this->datawriter.add_op(p, Point{ x,y }, (Dir)s);
-	}
-	this->datawriter.get_json().save(U"./answer.json");
-	update_board_texture();
-}
+
 
 JSON BoardAuto::get_json(void) const {
 	return this->datawriter.get_json();
@@ -334,10 +293,79 @@ void BoardAuto::update(void) {
 	update_gui();
 	update_board();
 }
-void BoardAuto::draw(const Board& board) const {
+void BoardAuto::draw(void) const {
 	draw_board();
-	draw_details(board);
+	draw_details();
 }
 
+
+
+class BoardConnect : public Board {
+private:
+	Vec2 calc_piece_pos(int row, int col) const override;
+	ChildProcess child;
+	void update_board(void);
+public:
+	void initialize(const BitBoard& board_start, const BitBoard& board_goal);
+	JSON get_json(void) const;
+	BoardConnect(void) {};
+	void update(void);
+	void draw(void) const;
+};
+Vec2 BoardConnect::calc_piece_pos(int row, int col) const {
+	return Vec2{ col * this->piece_size, row * this->piece_size };
+}
+void BoardConnect::initialize(const BitBoard& board_start, const BitBoard& board_goal) {
+	set_piece_colors();
+	this->child = ChildProcess{ U"./solver.exe", Pipe::StdInOut };
+	if (not child) throw Error{ U"Failed to create a process" };
+	this->height = board_start.height();  this->width = board_start.width();
+	this->piece_size = calc_piece_size();
+	this->board = BitBoard(height, width);
+	for (int row = 0; row < this->height; row++) {
+		for (int col = 0; col < this->width; col++) {
+			set_piece(board_start[row][col], row, col);
+		}
+	}
+	// プロセスに入力を与える
+	this->child.ostream() << this->height << std::endl << this->width << std::endl;
+	for (int row = 0; row < this->height; row++) {
+		String input = U"";
+		for (int col = 0; col < this->width; col++) {
+			input += Format(this->get_piece(row, col));
+		}
+		this->child.ostream() << input.narrow() << std::endl;
+	}
+	for (int row = 0; row < this->height; row++) {
+		String input = U"";
+		for (int col = 0; col < this->width; col++) {
+			input += Format(board_goal[row][col]);
+		}
+		this->child.ostream() << input.narrow() << std::endl;
+	}
+	int n, p, x, y, s;
+	this->child.istream() >> n;
+	for (int i = 0; i < n; i++) {
+		this->child.istream() >> p >> y >> x >> s;
+		this->datawriter.add_op(p, Point{ x,y }, (Dir)s);
+	}
+	this->datawriter.get_json().save(U"./answer.json");
+	update_board_texture();
+}
+JSON BoardConnect::get_json(void) const {
+	return this->datawriter.get_json();
+}
+
+void BoardConnect::update_board(void) {
+
+}
+
+void BoardConnect::update(void) {
+	update_board();
+}
+void BoardConnect::draw(void) const {
+	draw_board();
+	draw_details();
+}
 
 

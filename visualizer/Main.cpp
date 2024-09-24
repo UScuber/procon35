@@ -24,13 +24,13 @@ void AutoScene::update(void) {
 }
 void AutoScene::draw(void) const {
 	this->board_example.draw();
-	this->board_auto.draw(this->board_example);
+	this->board_auto.draw();
 }
 
 class ConnectScene : public App::Scene {
 private:
 	BoardExample board_example;
-	BoardAuto board_auto;
+	BoardConnect board_connect;
 	Connect connect;
 public:
 	ConnectScene(const InitData& init);
@@ -40,16 +40,16 @@ public:
 ConnectScene::ConnectScene(const InitData& init) : IScene{ init } {
 	this->connect.get_problem();
 	this->board_example.initialize(this->connect.get_problem_board_goal(), false);
-	this->board_auto.initialize(this->connect.get_problem_board_start(), this->connect.get_problem_board_goal());
-	this->connect.post_answer(this->board_auto.get_json());
+	this->board_connect.initialize(this->connect.get_problem_board_start(), this->connect.get_problem_board_goal());
+	this->connect.post_answer(this->board_connect.get_json());
 }
 void ConnectScene::update(void) {
 	if (KeyP.down()) changeScene(U"SelectScene");
-	this->board_auto.update();
+	this->board_connect.update();
 }
 void ConnectScene::draw(void) const {
 	this->board_example.draw();
-	this->board_auto.draw(this->board_example);
+	this->board_connect.draw();
 }
 
 
