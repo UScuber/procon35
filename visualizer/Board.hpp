@@ -20,27 +20,17 @@ public:
 	Array<Color> piece_colors = {Palette::Red, Palette::Green, Palette::Blue, Palette::Black};
 	Array<Array<bool>> is_selected;  // ボード上のピースが選択されてるか
 	int cnt_move = 0;  // 手数カウント
-	Anchor anchor = Anchor::Lefttop;  // 中心軸
 	const Font font{ 50, Typeface::Bold };  // 詳細表示用フォント
-	const Font font_arrows{ 100, Typeface::Bold };  // 詳細表示用フォント
 	DataWriter datawriter;  // 行動ログ保存用
-	bool is_wasd_piece = true;  // wasdキーがピース選択になっているか
-	Point selected_pos{ 0,0 };  // 選択ピースの座標
-	int anchor_icon_size = Scene::Size().y / 20;  // 錨アイコンの大きさ
-	Texture anchor_icon{0xf13d_icon, anchor_icon_size};  // 錨アイコン
 	DynamicTexture board_dynamic_texture; // ボード描画用のダイナミックテクスチャ
 	//////////////////////////////////////////////////////////////
 	// method
 	void initialize(const BitBoard& board); // 初期化
-	void initialize_noshuffle(const BitBoard& board); // 初期化
 	void initialize(const FilePath& path);
+	void initialize_noshuffle(const BitBoard& board); // 初期化
 	bool is_in_board(const Point& pos) const;  // ボード上に収まっているか
 	bool is_in_board(const int y, const int x) const;
 	virtual Vec2 calc_piece_pos(int row, int col) const = 0;  // ピースの座標計算
-	Point calc_lefttop(void) const;  // 中心軸を考慮した左上座標
-	void set_selected_pos(const Point& pos);  // 選択ピースの座標取得
-	Point get_selected_pos(void) const;  // 選択ピースの座標取得
-	Optional<Point> which_hover(void) const;  // どこのピースがホバーされているかを返す
 	BitBoard get_board(void) const;  // ボードを取得する
 	int get_piece(const int y, const int x) const; // 座標を指定してピースを取得する
 	void set_piece(const int num, const int y, const int x);  // 座標を指定してピースをセット
@@ -50,17 +40,12 @@ public:
 	void set_piece_colors(void);
 	//////////////////////////////////////////////////////////////
 	// update
-	void switch_wasd(void);  // wasdキーの役割変更
-	void change_anchor(void);   // 中心軸を変更
-	void select_piece(void);  // ホバーで選択状態する
-	void move(void);  // 型抜きの移動
 	void move(int p, int x, int y, Dir dir, bool enable_json);  // 指定して移動
 	void move(int p, const Point& pos, Dir dir, bool enable_json);
 	void update_board_texture(void); // ボードのテクスチャを更新
 	//////////////////////////////////////////////////////////////
 	// draw
 	void draw_board(void) const;  // ピース群の描画
-	void draw_selected(void) const;  // 選択されているピースを黒く表示
 	void draw_details(const Board &board) const;  // 詳細表示
 };
 
@@ -131,26 +116,6 @@ bool Board::is_in_board(const Point& pos) const {
 bool Board::is_in_board(const int y, const int x) const {
 	return (0 <= y and y < this->height and 0 <= x and x < this->width);
 }
-Point Board::calc_lefttop(void) const{
-	if (this->anchor == Anchor::Lefttop) return this->selected_pos;
-	else if (this->anchor == Anchor::Leftbottom) return  this->selected_pos - Point{ 0, this->patterns.get_pattern().height() - 1 };
-	else if (this->anchor == Anchor::Rightbottom) return  this->selected_pos - Point{ this->patterns.get_pattern().width() - 1, this->patterns.get_pattern().height() - 1 };
-	else if (this->anchor == Anchor::Righttop) return this->selected_pos - Point{ this->patterns.get_pattern().width() - 1, 0 };
-}
-void Board::set_selected_pos(const Point& pos) {
-	this->selected_pos = pos;
-}
-Point Board::get_selected_pos(void) const {
-	return this->selected_pos;
-}
-Optional<Point> Board::which_hover(void) const {
-	const Point mouse_pos = Cursor::Pos();
-	Point res{ 0,0 };
-	res.x = mouse_pos.x / this->piece_size;
-	res.y = mouse_pos.y / this->piece_size;
-	if (is_in_board(res)) return res;
-	else return none;
-}
 BitBoard Board::get_board(void) const {
 	return this->board;
 }
@@ -177,71 +142,6 @@ void Board::set_piece_colors(void) {
 	}
 }
 
-void Board::switch_wasd(void) {
-	if (KeyShift.down()) {
-		this->is_wasd_piece ^= true;
-	}
-}
-void Board::change_anchor(void) {
-	if (KeyQ.down()) {
-		this->anchor = static_cast<Anchor>((static_cast<int>(this->anchor) - 1 + 4) % 4);
-	}
-	else if (KeyE.down()) {
-		this->anchor = static_cast<Anchor>((static_cast<int>(this->anchor) + 1 + 4) % 4);
-	}
-}
-void Board::select_piece(void) {
-	if (is_wasd_piece) {
-		// キー入力によって上下左右に選択座標を動かす
-		Point pos = get_selected_pos();
-		if (KeyW.down()) {
-			if (pos.y == 0) pos.y = this->height - 1;
-			else pos.y--;
-		}else if (KeyS.down()) {
-			if (pos.y == this->height - 1) pos.y = 0;
-			else pos.y++;
-		}else if (KeyA.down()) {
-			if (pos.x == 0) pos.x = this->width - 1;
-			else pos.x--;
-		}else if (KeyD.down()) {
-			if (pos.x == this->width - 1) pos.x = 0;
-			else pos.x++;
-		}
-		set_selected_pos(pos);
-	}else {
-		// マウスオーバーされているピースを特定する
-		Optional<Point> piece_mouseover = which_hover();
-		// マウスオーバーされていたら選択座標を変更
-		if (piece_mouseover.has_value()) {
-			set_selected_pos(piece_mouseover.value());
-		}
-	}
-	// 左上座標を取得
-	Point pos = calc_lefttop();
-	// 抜き型を取得
-	Pattern pattern = patterns.get_pattern();
-	// 選択状態にする
-	this->is_selected.clear();
-	this->is_selected.resize(this->height, Array<bool>(this->width, false));
-	for (int row = pos.y; row < pos.y + (int)pattern.height(); row++) {
-		for (int col = pos.x; col < pos.x + (int)pattern.width(); col++) {
-			if (not is_in_board(row, col)) continue;
-			this->is_selected[row][col] = pattern[row - pos.y][col - pos.x];
-		}
-	}
-}
-void Board::move(void) {
-	// キーボードが押された方向を特定、なければ終了
-	Dir dir;
-	if (KeyUp.down()) dir = Dir::U;
-	else if (KeyLeft.down()) dir = Dir::L;
-	else if (KeyDown.down()) dir = Dir::D;
-	else if (KeyRight.down()) dir = Dir::R;
-	else return;
-	// 左上座標
-	Point pos = calc_lefttop();
-	this->move(this->patterns.get_pattern_idx(), pos.x, pos.y, dir, true);
-}
 void Board::move(int p, int x, int y, Dir dir, bool enable_json){
 	this->move(p, Point{ x,y }, dir, enable_json);
 }
@@ -276,15 +176,6 @@ void Board::draw_board(void) const {
 		.resized(this->piece_size * this->width, this->piece_size * this->height)
 		.draw(this->calc_piece_pos(0,0));
 }
-void Board::draw_selected(void) const {
-	for (int row = 0; row < this->height; row++) {
-		for (int col = 0; col < this->width; col++) {
-			if (is_selected[row][col]) {
-				RectF{ calc_piece_pos(row, col), this->piece_size }.draw(ColorF{ 0.0, 0.5 });
-			}
-		}
-	}
-}
 void Board::draw_details(const Board &board) const {
 	int cnt_lack = 0;
 	for (int row = 0; row < this->height; row++) {
@@ -301,45 +192,6 @@ void Board::draw_details(const Board &board) const {
 	font(U"一致率:{:.0f}%"_fmt((double)(piece_sum - cnt_lack) / (double)piece_sum * 100.0)).drawAt(Vec2{ Scene::Center().x, Scene::Size().y / 10 * 3 }, Palette::Black);
 }
 
-
-
-class BoardOperate : public Board {
-private:
-	Vec2 calc_piece_pos(int row, int col) const override;
-public:
-	BoardOperate(void) {};
-	void update(void);
-	void draw(const Board& board) const;
-};
-Vec2 BoardOperate::calc_piece_pos(int row, int col) const {
-	return Vec2{ col * this->piece_size, row * this->piece_size };
-}
-void BoardOperate::update(void) {
-	switch_wasd();
-	change_anchor();
-	patterns.update(not this->is_wasd_piece);
-	select_piece();
-	move();
-}
-void BoardOperate::draw(const Board& board) const {
-	Vec2 anchor_rects{ Scene::Center().x, Scene::Size().y * 2 / 5 };
-	RectF{ Arg::bottomRight(anchor_rects), (double)anchor_icon_size }.drawFrame(5, Palette::Black);
-	RectF{ Arg::topRight(anchor_rects), (double)anchor_icon_size }.drawFrame(5, Palette::Black);
-	RectF{ Arg::topLeft(anchor_rects), (double)anchor_icon_size }.drawFrame(5, Palette::Black);
-	RectF{ Arg::bottomLeft(anchor_rects), (double)anchor_icon_size }.drawFrame(5, Palette::Black);
-	Vec2 anchor_pos = anchor_rects;
-	if (this->anchor == Anchor::Lefttop) anchor_pos += Vec2{ -anchor_icon_size / 2, -anchor_icon_size / 2 };
-	else if (this->anchor == Anchor::Leftbottom) anchor_pos += Vec2{ -anchor_icon_size / 2, anchor_icon_size / 2 };
-	else if (this->anchor == Anchor::Rightbottom) anchor_pos += Vec2{ anchor_icon_size / 2, anchor_icon_size / 2 };
-	else if (this->anchor == Anchor::Righttop) anchor_pos += Vec2{ anchor_icon_size / 2, -anchor_icon_size / 2 };
-	anchor_icon.scaled(0.8).drawAt(anchor_pos, Palette::Black);
-	String arrows = (is_wasd_piece) ? U"↑↑↑↑↑" : U"↓↓↓↓↓";
-	font_arrows(arrows).drawBaseAt(Vec2{ Scene::Center().x, Scene::Size().y * 3.75 / 5 }, (is_wasd_piece) ? Palette::Blue : Palette::Red);
-	patterns.draw();
-	draw_board();
-	draw_selected();
-	draw_details(board);
-}
 
 
 class BoardExample : public Board {
@@ -360,7 +212,6 @@ void BoardExample::update(Board& board) {
 }
 void BoardExample::draw(void) const {
 	draw_board();
-	draw_selected();
 }
 
 class BoardAuto : public Board {
