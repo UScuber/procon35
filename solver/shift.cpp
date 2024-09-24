@@ -560,6 +560,7 @@ void z_algo(const uchar s[257*257], const int n, uchar z[257*257]){
   }
 }
 
+// 盤面の評価関数
 double evaluate_board(const int row, const Board &state_now, const Board &state_goal){
   const int h = state_now.height();
   const int w = state_now.width();
@@ -569,8 +570,6 @@ double evaluate_board(const int row, const Board &state_now, const Board &state_
 
   if(st_j >= w) return -1000000000;
 
-  // bitset<256> used[256];
-  // uchar s[257*257], z[257*257];
   vector<bitset<256>> used(256);
   vector<uchar> s(257*257), z(257*257);
   int result = -st_j * 500000.0 / w; // 初期でそろっているやつ
@@ -640,8 +639,8 @@ double evaluate_board(const int row, const Board &state_now, const Board &state_
     while(state_now[h-1][st_j] == state_goal[h-row-1][st_j]) st_j++, new_len++;
 
     // iterが大きいほどスコアが反映されにくくなる
-    const double pr = pow(0.8, iter) * 100;
-    result += (-new_len / (2.0 - above)) * pr;
+    const double pr = pow(0.95, iter) * 100;
+    result += (-new_len / (2.0 - above*0.5)) * pr;
     // result += (2 - above) * pr / new_len;
     result += abs(st_j - best_x) * pr / 50;
     // result += second_score * pr / 100 / 100;
@@ -764,10 +763,8 @@ void solve_row_effi_roughly(Operations& ops, const int row, Board& state_now, co
 
       for(int i = row; i < h; i++){
         for(int k = 0; k < (int)cutting_dies.size(); k++){
-          // const int sy = i - cutting_dies[k].height() + 1 + ((k > 0 && (k-1) % 3 == 1) ? 1 : 0);
           const int sy = i;
           const int sx = j - (w-1);
-          // if(sy < row) continue; // すでにそろえた行と衝突する
           if(sx + cutting_dies[k].width() <= 0) continue; // 左に行きすぎ
           // if(sx < st_j && sy + cutting_dies[k].height() - ((k > 0 && (k-1) % 3 == 1) ? 1 : 0) >= h-1) continue;
           for(const Dir dir : { Dir::L, Dir::R, Dir::U }){
@@ -778,7 +775,6 @@ void solve_row_effi_roughly(Operations& ops, const int row, Board& state_now, co
             tmp_state->slide(cutting_dies[k], sy, sx, dir);
             const int score = evaluate_board(row, *tmp_state, state_goal);
             if(score < best_scores[j]){
-              // cerr << st_j << " ";
               best_scores[j] = score;
               best_op[j] = Operation(k, sy, sx, dir);
             }
@@ -797,6 +793,7 @@ void solve_row_effi_roughly(Operations& ops, const int row, Board& state_now, co
 
     assert(best_score < 1000000000);
 
+    // 前回と同じスコアの場合、改善していないのでエラー
     if(best != Operation(1U << 31) && prev_score != best_score){
       ops.push_back(best);
       state_now.slide(best);
@@ -838,13 +835,13 @@ void solve_row(vector<Operation>& ops, int row, Board& state_now, const Board& s
         if(state_goal[0][w - 1 - i] == state_now[row][j]){
           // (row, j) を左シフト
           ops.push_back({KATA_11, row, j, Dir::R});
-          state_now.slide(cutting_dies[KATA_11], row, j, Dir::R);
+          state_now.slide(ops.back());
           break;
         }
       }
     }
     ops.push_back({KATA_MM, h - 1, 0, Dir::D});
-    state_now.slide(cutting_dies[KATA_MM], h - 1, 0, Dir::D);
+    state_now.slide(ops.back());
     return;
   }
 
@@ -941,18 +938,13 @@ int main(){
   auto ops = solve(state_start, state_goal);
 
   // 出力
-  // cout << "start : \n";
-  // print_state(state_start);
   cout << ops.size() << "\n";
   Board state_now = state_start;
   for(const Operation op : ops){
     cout << op << "\n";
     state_now.slide(op);
-    // print_state(state_now);
   }
   cout << endl;
-  // cout << "expect : \n";
-  // print_state(state_goal);
 
   // チェック
   for(int i = 0; i < h; i++){
