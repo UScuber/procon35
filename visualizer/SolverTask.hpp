@@ -29,12 +29,12 @@ public:
 
 void SolverTask::initialize(const BitBoard& board_start, const BitBoard& board_goal) {
 	// wslのユーザ名読み込み
-	TextReader reader_wsl_user{ U"./wsl_user.env" };
-	if(not reader_wsl_user)  throw Error{ U"Failed to open 'token.env'" };
-	String wsl_user;
-	reader_wsl_user.readLine(wsl_user);
+	TextReader reader_wsl_path{ U"./wsl_path.env" };
+	if(not reader_wsl_path)  throw Error{ U"Failed to open 'wsl_path.env'" };
+	String wsl_path;
+	reader_wsl_path.readLine(wsl_path);
 	// プロセス生成
-	this->child = ChildProcess{ U"C:\\Windows\\System32\\wsl.exe", U"/home/{}/solver"_fmt(wsl_user), Pipe::StdInOut};
+	this->child = ChildProcess{ U"C:\\Windows\\System32\\wsl.exe", wsl_path, Pipe::StdInOut};
 	if (not this->child) throw Error{ U"Failed to create a process" };
 
 	// プロセスに入力を与える

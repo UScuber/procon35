@@ -197,8 +197,15 @@ Vec2 BoardAuto::calc_piece_pos(int row, int col) const {
 }
 void BoardAuto::initialize(const BitBoard& board) {
 	set_piece_colors();
-	this->child = ChildProcess{ U"C:\\Windows\\System32\\wsl.exe", U"/home/tamagosushi/solver_tmp", Pipe::StdInOut };
-	if (not child) throw Error{ U"Failed to create a process" };
+	// wslのユーザ名読み込み
+	TextReader reader_wsl_path{ U"./wsl_path.env" };
+	if (not reader_wsl_path)  throw Error{ U"Failed to open 'wsl_path.env'" };
+	String wsl_path;
+	reader_wsl_path.readLine(wsl_path);
+	// プロセス生成
+	this->child = ChildProcess{ U"C:\\Windows\\System32\\wsl.exe", wsl_path, Pipe::StdInOut };
+	if (not this->child) throw Error{ U"Failed to create a process" };
+
 	this->height = board.height();  this->width = board.width();
 	this->piece_size = calc_piece_size();
 	this->board = BitBoard(height, width);
