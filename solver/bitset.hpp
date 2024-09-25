@@ -16,19 +16,19 @@ struct Bitset {
 
   inline Bitset operator>>(const int len) const;
 
-  inline constexpr Bitset &operator&=(const Bitset &bit);
+  inline constexpr Bitset &operator&=(const Bitset& bit);
 
-  inline constexpr Bitset &operator|=(const Bitset &bit);
+  inline constexpr Bitset &operator|=(const Bitset& bit);
 
-  inline constexpr Bitset operator|(const Bitset &bit) const;
+  inline constexpr Bitset operator|(const Bitset& bit) const;
 
   // &= (1 << len) - 1
-  inline Bitset &mask(const int len);
+  inline Bitset& mask(const int len);
 
   // &= ~(((1 << (r-l))-1) << l)
-  inline Bitset &remove(const int l, const int r);
+  inline Bitset& remove(const int l, const int r);
 
-  inline Bitset &rotate(int l, int m, int r);
+  inline Bitset& rotate(int l, int m, int r);
 
   struct reference {
     ull *ptr;
@@ -38,7 +38,7 @@ struct Bitset {
 
     inline reference &operator=(const uchar v);
 
-    inline reference &operator=(const reference &ref);
+    inline reference &operator=(const reference& ref);
 
     inline constexpr operator uchar() const;
   };
@@ -99,21 +99,21 @@ inline Bitset Bitset::operator>>(const int len) const{
   return Bitset(*this) >>= len;
 }
 
-inline constexpr Bitset &Bitset::operator&=(const Bitset &bit){
+inline constexpr Bitset &Bitset::operator&=(const Bitset& bit){
   for(int i = 0; i < SIZE; i++){
     a[i] &= bit.a[i];
   }
   return *this;
 }
 
-inline constexpr Bitset &Bitset::operator|=(const Bitset &bit){
+inline constexpr Bitset &Bitset::operator|=(const Bitset& bit){
   for(int i = 0; i < SIZE; i++){
     a[i] |= bit.a[i];
   }
   return *this;
 }
 
-inline constexpr Bitset Bitset::operator|(const Bitset &bit) const{
+inline constexpr Bitset Bitset::operator|(const Bitset& bit) const{
   return Bitset(*this) |= bit;
 }
 

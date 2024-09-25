@@ -8,7 +8,7 @@ using namespace std;
 
 
 
-void one_slide(vector<vector<int>> &a, const int posy, const int posx, const Dir dir){
+void one_slide(vector<vector<int>>& a, const int posy, const int posx, const Dir dir){
   const int h = a.size();
 
   const int piece = a[posy][posx];
@@ -41,7 +41,7 @@ void one_slide(vector<vector<int>> &a, const int posy, const int posx, const Dir
   }
 }
 
-void teikei_left_slide(vector<vector<int>> &a, const int size, const int type, const int posy, const int posx){
+void teikei_left_slide(vector<vector<int>>& a, const int size, const int type, const int posy, const int posx){
   const int h = a.size();
   const int w = a[0].size();
   const int kata_sy = max(0, -posy), kata_sx = max(0, -posx);
@@ -72,7 +72,7 @@ void teikei_left_slide(vector<vector<int>> &a, const int size, const int type, c
   // 0-indexedで偶数が抜く列
   if(type == 2){
     for(int i = kata_sy; i < kata_ty; i++){
-      auto &row = a[i+board_y];
+      auto& row = a[i+board_y];
       vector<int> picked_pieces;
 
       // pick
@@ -102,7 +102,7 @@ void teikei_left_slide(vector<vector<int>> &a, const int size, const int type, c
   }
 }
 
-void teikei_right_slide(vector<vector<int>> &a, const int size, const int type, const int posy, const int posx){
+void teikei_right_slide(vector<vector<int>>& a, const int size, const int type, const int posy, const int posx){
   const int h = a.size();
   const int w = a[0].size();
   const int kata_sy = max(0, -posy), kata_sx = max(0, -posx);
@@ -133,7 +133,7 @@ void teikei_right_slide(vector<vector<int>> &a, const int size, const int type, 
   // 0-indexedで偶数が抜く列
   if(type == 2){
     for(int i = kata_sy; i < kata_ty; i++){
-      auto &row = a[i+board_y];
+      auto& row = a[i+board_y];
       vector<int> picked_pieces;
 
       // pick
@@ -164,7 +164,7 @@ void teikei_right_slide(vector<vector<int>> &a, const int size, const int type, 
 }
 
 
-void reverse_row(vector<vector<int>> &a, const int sy, const int ty, const int sx, const int tx){
+void reverse_row(vector<vector<int>>& a, const int sy, const int ty, const int sx, const int tx){
   vector<int> tmp(tx - sx);
   for(int i = sy; i < (sy+ty)/2; i++){
     copy(a[i].begin() + sx, a[i].begin() + tx, tmp.begin());
@@ -173,7 +173,7 @@ void reverse_row(vector<vector<int>> &a, const int sy, const int ty, const int s
   }
 }
 
-void teikei_up_slide(vector<vector<int>> &a, const int size, const int type, const int posy, const int posx){
+void teikei_up_slide(vector<vector<int>>& a, const int size, const int type, const int posy, const int posx){
   const int h = a.size();
   const int w = a[0].size();
   const int kata_sy = max(0, -posy), kata_sx = max(0, -posx);
@@ -248,7 +248,7 @@ void teikei_up_slide(vector<vector<int>> &a, const int size, const int type, con
   }
 }
 
-void teikei_down_slide(vector<vector<int>> &a, const int size, const int type, const int posy, const int posx){
+void teikei_down_slide(vector<vector<int>>& a, const int size, const int type, const int posy, const int posx){
   const int h = a.size();
   const int w = a[0].size();
   const int kata_sy = max(0, -posy), kata_sx = max(0, -posx);
@@ -324,7 +324,7 @@ void teikei_down_slide(vector<vector<int>> &a, const int size, const int type, c
 }
 
 // 定型抜き型専用のスライド
-vector<vector<int>> teikei_slide(const vector<vector<int>> &a, int kata_index, const int posy, const int posx, const Dir dir){
+vector<vector<int>> teikei_slide(const vector<vector<int>>& a, int kata_index, const int posy, const int posx, const Dir dir){
   const int h = a.size();
   const int w = a[0].size();
   assert(0 <= kata_index && kata_index < 25);
@@ -353,19 +353,6 @@ vector<vector<int>> teikei_slide(const vector<vector<int>> &a, int kata_index, c
 }
 
 
-
-void print_state(const Board& a){
-  const int h = a.height(), w = a.width();
-  for(int i = 0;i < h;i++){
-    for(int j = 0;j < w;j++){
-      cout << (int)a[i][j];
-    }
-    cout << "\n";
-  }
-  cout << endl;
-}
-
-
 #define KATA_MM 22 // 256x256
 #define KATA_11 0 // 1x1
 #define KATA_12 2 // 1x2 (縦 1, 横 2)
@@ -378,7 +365,7 @@ bool solve_pos_a(vector<Operation>& ops, int row, int col, Board& state_now, con
     if(state_now[i][col] != need_val) continue;
     // (i, col) を1x1の抜き型で下寄せ
     ops.push_back({KATA_11, i, col, Dir::D});
-    state_now.slide(cutting_dies[KATA_11], i, col, Dir::D);
+    state_now.slide(ops.back());
     return true;
   }
   return false;
@@ -393,7 +380,7 @@ bool solve_pos_a2(vector<Operation>& ops, int row, int col, Board& state_now, co
     if(state_now[i][col + 1] != need_val[1]) continue;
     // (i, col) を1x2の抜き型で下寄せ
     ops.push_back({KATA_12, i, col, Dir::D});
-    state_now.slide(cutting_dies[KATA_12], i, col, Dir::D);
+    state_now.slide(ops.back());
     return true;
   }
   return false;
@@ -410,22 +397,22 @@ bool solve_pos_b(vector<Operation>& ops, int row, int col, Board& state_now, con
         // -> (i, j - col - 1)   を右上として256x256の抜き型で左寄せ
         // -> (i, j - col - 256) を左上として256x256の抜き型で左寄せ
         ops.push_back({KATA_MM, i, j - col - 256, Dir::L});
-        state_now.slide(cutting_dies[KATA_MM], i, j - col - 256, Dir::L);
+        state_now.slide(ops.back());
         
         // (i, col) を1x1の抜き型で下寄せ
         ops.push_back({KATA_11, i, col, Dir::D});
-        state_now.slide(cutting_dies[KATA_11], i, col, Dir::D);
+        state_now.slide(ops.back());
         return true;
       }else if(j < col){ // 左にある
         // 右から col - j 列を左シフト、列を合わせる
         // -> (i, w - (col - j)) を左上として256x256の抜き型で右寄せ
         ops.push_back({KATA_MM, i, w - (col - j), Dir::R});
-        state_now.slide(cutting_dies[KATA_MM], i, w - (col - j), Dir::R);
+        state_now.slide(ops.back());
         
         
         // (i, col) を1x1の抜き型で下寄せ
         ops.push_back({KATA_11, i, col, Dir::D});
-        state_now.slide(cutting_dies[KATA_11], i, col, Dir::D);
+        state_now.slide(ops.back());
         return true;
       }
     }
@@ -437,7 +424,7 @@ bool solve_pos_c(vector<Operation>& ops, int row, int col, Board& state_now, con
   const int h = state_now.height(), w = state_now.width();
   int need_val = state_goal[h - 1 - row][col];
   // (row, col) の左側
-  for(int j = 0;j < w;j++){
+  for(int j = 0; j < w; j++){
     if(state_now[row][j] != need_val) continue;
     if(used[j])continue;
     // j と col の距離
@@ -445,26 +432,26 @@ bool solve_pos_c(vector<Operation>& ops, int row, int col, Board& state_now, con
 
     // (row, j) を下シフト
     ops.push_back({KATA_11, row, j, Dir::U});
-    state_now.slide(cutting_dies[KATA_11], row, j, Dir::U);
+    state_now.slide(ops.back());
 
     if(j < col){
       ops.push_back({KATA_MM, h - 1, w - dist, Dir::R});
-      state_now.slide(cutting_dies[KATA_MM], h - 1, w - dist, Dir::R);
+      state_now.slide(ops.back());
     }else{
       ops.push_back({KATA_MM, h - 1, dist - 256, Dir::L});
-      state_now.slide(cutting_dies[KATA_MM], h - 1, dist - 256, Dir::R);
+      state_now.slide(ops.back());
     }
 
     // (h - 1, col) を1x1の抜き型で上シフト
     ops.push_back({KATA_11, h - 1, col, Dir::D});
-    state_now.slide(cutting_dies[KATA_11], h - 1, col, Dir::D);
+    state_now.slide(ops.back());
     return true;
   }
   return false;
 }
 
 
-bool check_all_bottom(const int row, const Board &state_now, const Board &state_goal){
+bool check_all_bottom(const int row, const Board& state_now, const Board& state_goal){
   const int h = state_now.height(), w = state_now.width();
   for(int j = 0; j < w; j++){
     bool ok = false;
@@ -561,7 +548,7 @@ void z_algo(const uchar s[257*257], const int n, uchar z[257*257]){
 }
 
 // 盤面の評価関数
-double evaluate_board(const int row, const Board &state_now, const Board &state_goal){
+double evaluate_board(const int row, const Board& state_now, const Board& state_goal){
   const int h = state_now.height();
   const int w = state_now.width();
 
@@ -715,19 +702,19 @@ void solve_row_clearly(Operations& ops, const int row, Board& state_now, const B
           if(j < st_j){
             // 右から st_j - j 行を左へもっていく
             ops.push_back({lr_kata_id, nuki_row, w - abs(st_j - j), Dir::R});
-            state_now.slide(cutting_dies[lr_kata_id], nuki_row, w - abs(st_j - j), Dir::R);
+            state_now.slide(ops.back());
           }else if(st_j < j){
             // 左から j - st_j 行を右へもっていく
             ops.push_back({lr_kata_id, nuki_row, abs(st_j - j) - lr_kata_size, Dir::L});
-            state_now.slide(cutting_dies[lr_kata_id], nuki_row, abs(st_j - j) - lr_kata_size, Dir::L);
+            state_now.slide(ops.back());
           }
           ops.push_back({u_kata_id, i + 1 - u_kata_size, st_j, Dir::U});
-          state_now.slide(cutting_dies[u_kata_id], i + 1 - u_kata_size, st_j, Dir::U);
+          state_now.slide(ops.back());
           moved = true;
           break;
         }
       }
-      if(moved)break;
+      if(moved) break;
     }
     if(!moved) return; // 動かせなかったとき
   }
@@ -830,8 +817,8 @@ void solve_row(vector<Operation>& ops, int row, Board& state_now, const Board& s
   const int h = state_now.height(), w = state_now.width();
   vector<bool> used(w);
   if(row == h - 1){
-    for(int i = 0;i < w;i++){
-      for(int j = i;j < w;j++){
+    for(int i = 0; i < w;i++){
+      for(int j = i; j < w;j++){
         if(state_goal[0][w - 1 - i] == state_now[row][j]){
           // (row, j) を左シフト
           ops.push_back({KATA_11, row, j, Dir::R});
@@ -850,14 +837,14 @@ void solve_row(vector<Operation>& ops, int row, Board& state_now, const Board& s
 
   int cnt = 0;
   while(cnt < w){
-    for(int i = 0;i + 1 < w;i++){
+    for(int i = 0; i + 1 < w;i++){
       if(used[i] || used[i + 1])continue;
       if(solve_pos_a2(ops, row, i, state_now, state_goal)){
         used[i] = used[i + 1] = true;
         cnt += 2;
       }
     }
-    for(int i = 0;i < w;i++){
+    for(int i = 0; i < w;i++){
       if(used[i])continue;
       if(solve_pos_a(ops, row, i, state_now, state_goal)){
         used[i] = true;
@@ -866,7 +853,7 @@ void solve_row(vector<Operation>& ops, int row, Board& state_now, const Board& s
     }
     // 下側を回転させたかどうか
     bool isrot = false;
-    for(int i = 0;i < w;i++){
+    for(int i = 0; i < w;i++){
       if(used[i])continue;
       if(solve_pos_b(ops, row, i, state_now, state_goal)){
         used[i] = true;
@@ -876,7 +863,7 @@ void solve_row(vector<Operation>& ops, int row, Board& state_now, const Board& s
       }
     }
     if(isrot)continue;
-    for(int i = 0;i < w;i++){
+    for(int i = 0; i < w;i++){
       if(used[i])continue;
       if(solve_pos_c(ops, row, i, state_now, state_goal, used)){
         used[i] = true;
@@ -885,13 +872,13 @@ void solve_row(vector<Operation>& ops, int row, Board& state_now, const Board& s
     }
   }
 }
-Operations solve(const Board &state_start, const Board &state_goal){
+Operations solve(const Board& state_start, const Board& state_goal){
   const int h = state_start.height();
   // 操作 (p, x, y, s)
   Operations ops;
   // 現在の盤面
   Board state_now = state_start;
-  for(int i = 0;i < h; i++){
+  for(int i = 0; i < h; i++){
     solve_row(ops, i, state_now, state_goal);
   }
   return ops;
@@ -909,7 +896,7 @@ int main(){
     cutting_dies.emplace_back(kata);
     for(int i = 0; i < n; i++){
       for(int j = 0; j < n; j++){
-        kata[i][j] ^= (i + j) & 1;
+        kata[i][j] ^= (i + j)&  1;
       }
     }
     cutting_dies.emplace_back(kata);

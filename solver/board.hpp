@@ -9,7 +9,7 @@ struct Board {
 
   Board() = delete;
   Board(const int h, const int w);
-  Board(const std::vector<std::vector<int>> &b);
+  Board(const std::vector<std::vector<int>>& b);
 
   inline uchar get(const int i, const int j) const;
   inline void set(const int i, const int j, const uchar v);
@@ -18,7 +18,7 @@ struct Board {
   inline int width() const;
 
   void slide(const Board& kata, const int posy, const int posx, const Dir dir);
-  void slide(const Operation &op);
+  void slide(const Operation& op);
 
 
   // [i][j]でアクセスする用
@@ -52,10 +52,10 @@ private:
   Bitset a[256];
   int h,w;
 
-  void left_slide(const Board &kata, const int posy, const int posx);
-  void right_slide(const Board &kata, const int posy, const int posx);
-  void up_slide(const Board &kata, const int posy, const int posx);
-  void down_slide(const Board &kata, const int posy, const int posx);
+  void left_slide(const Board& kata, const int posy, const int posx);
+  void right_slide(const Board& kata, const int posy, const int posx);
+  void up_slide(const Board& kata, const int posy, const int posx);
+  void down_slide(const Board& kata, const int posy, const int posx);
 
 };
 
@@ -65,7 +65,7 @@ private:
 
 Board::Board(const int h, const int w) : a(), h(h), w(w){}
 
-Board::Board(const std::vector<std::vector<int>> &b) : a(), h((int)b.size()), w((int)b[0].size()){
+Board::Board(const std::vector<std::vector<int>>& b) : a(), h((int)b.size()), w((int)b[0].size()){
   for(int i = 0; i < h; i++){
     for(int j = 0; j < w; j++){
       a[j][i] = (uchar)b[i][j];
@@ -136,7 +136,7 @@ void Board::debug() const{
 }
 
 
-void Board::left_slide(const Board &kata, const int posy, const int posx){
+void Board::left_slide(const Board& kata, const int posy, const int posx){
   const int kata_sy = std::max(0, -posy), kata_sx = std::max(0, -posx);
   const int kata_ty = std::min(kata.height(), h-posy), kata_tx = std::min(kata.width(), w-posx);
   const int board_y = std::max(0, posy) - kata_sy, board_x = std::max(0, posx) - kata_sx;
@@ -171,7 +171,7 @@ void Board::left_slide(const Board &kata, const int posy, const int posx){
     }
   }
 }
-void Board::right_slide(const Board &kata, const int posy, const int posx){
+void Board::right_slide(const Board& kata, const int posy, const int posx){
   const int kata_sy = std::max(0, -posy), kata_sx = std::max(0, -posx);
   const int kata_ty = std::min(kata.height(), h-posy), kata_tx = std::min(kata.width(), w-posx);
   const int board_y = std::max(0, posy) - kata_sy, board_x = std::max(0, posx) - kata_sx;
@@ -206,7 +206,7 @@ void Board::right_slide(const Board &kata, const int posy, const int posx){
     }
   }
 }
-void Board::up_slide(const Board &kata, const int posy, const int posx){
+void Board::up_slide(const Board& kata, const int posy, const int posx){
   const int kata_sy = std::max(0, -posy), kata_sx = std::max(0, -posx);
   const int kata_ty = std::min(kata.height(), h-posy), kata_tx = std::min(kata.width(), w-posx);
   const int board_y = std::max(0, posy) - kata_sy, board_x = std::max(0, posx) - kata_sx;
@@ -233,7 +233,7 @@ void Board::up_slide(const Board &kata, const int posy, const int posx){
     }
   }
 }
-void Board::down_slide(const Board &kata, const int posy, const int posx){
+void Board::down_slide(const Board& kata, const int posy, const int posx){
   const int kata_sy = std::max(0, -posy), kata_sx = std::max(0, -posx);
   const int kata_ty = std::min(kata.height(), h-posy), kata_tx = std::min(kata.width(), w-posx);
   const int board_y = std::max(0, posy) - kata_sy, board_x = std::max(0, posx) - kata_sx;

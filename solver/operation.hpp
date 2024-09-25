@@ -18,9 +18,9 @@ struct Operation {
 
   inline constexpr Dir dir() const;
 
-  inline constexpr bool operator==(const Operation &op) const;
+  inline constexpr bool operator==(const Operation& op) const;
 
-  inline constexpr bool operator!=(const Operation &op) const;
+  inline constexpr bool operator!=(const Operation& op) const;
 
   void debug() const;
 
@@ -69,11 +69,11 @@ inline constexpr Dir Operation::dir() const{
   return (Dir)(data >> 27 & 3);
 }
 
-inline constexpr bool Operation::operator==(const Operation &op) const{
+inline constexpr bool Operation::operator==(const Operation& op) const{
   return data == op.data;
 }
 
-inline constexpr bool Operation::operator!=(const Operation &op) const{
+inline constexpr bool Operation::operator!=(const Operation& op) const{
   return data != op.data;
 }
 
@@ -86,13 +86,13 @@ void Operation::debug() const{
   std::cerr << c << std::endl;
 }
 
-std::istream &operator>>(std::istream &is, Operation &ops){
+std::istream& operator>>(std::istream& is, Operation& ops){
   int kata,y,x,dir;
   is >> kata >> y >> x >> dir;
   ops = Operation(kata, y, x, (Dir)dir);
   return is;
 }
 
-std::ostream &operator<<(std::ostream &os, const Operation &ops){
+std::ostream& operator<<(std::ostream& os, const Operation& ops){
   return os << ops.kata_idx() << ' ' << ops.y() << ' ' << ops.x() << ' ' << (int)ops.dir();
 }
