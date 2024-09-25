@@ -137,7 +137,7 @@ void Board::move(int p, const Point& pos, Dir dir, bool enable_json) {
 	this->cnt_move++;
 	update_board_texture();
 	// 行動ログを追加
-	if(enable_json) this->datawriter.add_op(patterns.get_pattern_idx(), pos, dir);
+	if(enable_json) this->datawriter.add_op(p, pos, dir);
 }
 void Board::update_board_texture(void) {
 	Image board_image{ (size_t)this->width, (size_t)this->height };
@@ -307,6 +307,7 @@ class BoardConnect : public Board {
 private:
 	Vec2 calc_piece_pos(int row, int col) const override;
 	SolverTask solver_task;
+	bool is_finished = false;
 public:
 	void initialize(const BitBoard& board_start, const BitBoard& board_goal);
 	JSON get_json(void) const;
@@ -336,14 +337,16 @@ JSON BoardConnect::get_json(void) const {
 
 
 void BoardConnect::update(void) {
-	if (this->cnt_move != this->solver_task.get_op_num()) {
+	if (this->cnt_move != this->solver_task.get_op_num() and not this->is_finished) {
 		Array<int> op = this->solver_task.get_op();
-		this->move(op[0], op[2], op[1], (Dir)op[3],  true);
-		if (this->solver_task.is_finished()) {
+		if (op[0] == -1 and op[1] == -1 and op[2] == -1 and op[3] == -1) {
+			this->is_finished = true;
 			Connect connect;
-			//Console << this->datawriter.get_json();
+			Console << this->datawriter.get_json();
 			connect.post_answer(this->datawriter.get_json());
 			this->datawriter.get_json().save(U"./answer.json");
+		}else {
+			this->move(op[0], op[2], op[1], (Dir)op[3], true);
 		}
 	}
 }

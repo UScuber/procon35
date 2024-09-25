@@ -6,13 +6,11 @@
 
 class SolverTask {
 private:
-	bool update();
+	bool update(void);
 	static void Update(SolverTask* solver_task);
 	AsyncTask<void> task;
 	std::atomic<bool> m_abort{ false };
 	std::atomic<size_t>  op_num = 0;
-	bool is_outputed = false;
-	bool is_finished_flg = false;
 	ChildProcess child;
 	//////////////////////////////
 	// mutexで保護する
@@ -23,7 +21,6 @@ public:
 	~SolverTask();
 	void initialize(const BitBoard& board_start, const BitBoard& board_goal);
 	size_t get_op_num(void) const;
-	bool is_finished(void) const;
 	Array<int> get_op(void);
 };
 
@@ -66,17 +63,15 @@ SolverTask::~SolverTask() {
 	}
 }
 
-bool SolverTask::update() {
+bool SolverTask::update(void) {
 	int p, x, y, s;
 	this->child.istream() >> p >> y >> x >> s;
-	if (p == -1 and y == -1 and x == -1 and s == -1) {
-		this->is_finished_flg = true;
-		return true;
-	}
 	std::lock_guard lock{ this->m_mutex };
 	this->que_ops.push(Array<int>({ p, y, x, s }));
-	this->is_outputed = false;
 	this->op_num++;
+	if (p == -1 and y == -1 and x == -1 and s == -1) {
+		return true;
+	}
 	return false;
 }
 
@@ -90,9 +85,6 @@ void SolverTask::Update(SolverTask* solver_task) {
 
 size_t SolverTask::get_op_num(void) const {
 	return this->op_num;
-}
-bool SolverTask::is_finished(void) const {
-	return not this->child.isValid();
 }
 Array<int> SolverTask::get_op(void) {
 	std::lock_guard lock{ this->m_mutex };
