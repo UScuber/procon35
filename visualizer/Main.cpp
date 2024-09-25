@@ -41,7 +41,6 @@ ConnectScene::ConnectScene(const InitData& init) : IScene{ init } {
 	this->connect.get_problem();
 	this->board_example.initialize(this->connect.get_problem_board_goal(), false);
 	this->board_connect.initialize(this->connect.get_problem_board_start(), this->connect.get_problem_board_goal());
-	this->connect.post_answer(this->board_connect.get_json());
 }
 void ConnectScene::update(void) {
 	if (KeyP.down()) changeScene(U"SelectScene");
@@ -82,6 +81,7 @@ void Main() {
 	manager.add<SelectScene>(U"SelectScene");
 	manager.add<ConnectScene>(U"ConnectScene");
 	manager.add<AutoScene>(U"AutoScene");
+
 
 	while (System::Update()) {
 		const ScopedRenderStates2D sampler{ SamplerState::ClampNearest };
