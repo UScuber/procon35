@@ -308,6 +308,7 @@ private:
 	Vec2 calc_piece_pos(int row, int col) const override;
 	SolverTask solver_task;
 	bool is_finished = false;
+	bool is_success_post = false;
 public:
 	void initialize(const BitBoard& board_start, const BitBoard& board_goal);
 	JSON get_json(void) const;
@@ -342,8 +343,7 @@ void BoardConnect::update(void) {
 		if (op[0] == -1 and op[1] == -1 and op[2] == -1 and op[3] == -1) {
 			this->is_finished = true;
 			Connect connect;
-			Console << this->datawriter.get_json();
-			connect.post_answer(this->datawriter.get_json());
+			this->is_success_post = connect.post_answer(this->datawriter.get_json());
 			this->datawriter.get_json().save(U"./answer.json");
 		}else {
 			this->move(op[0], op[2], op[1], (Dir)op[3], true);
@@ -353,6 +353,9 @@ void BoardConnect::update(void) {
 void BoardConnect::draw(void) const {
 	draw_board();
 	draw_details();
+	if (this->is_finished and this->is_success_post) {
+		this->font(U"post is successful!").drawAt(Vec2{ Scene::Center().x, Scene::Size().y * 13.0 / 15.0 }, Palette::Black);
+	}
 }
 
 

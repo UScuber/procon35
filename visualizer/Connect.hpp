@@ -16,8 +16,8 @@ private:
 	JSON post_answer_response_json;
 public:
 	Connect(void);
-	void get_problem(void);
-	void post_answer(const JSON& json);
+	bool get_problem(void);
+	bool post_answer(const JSON& json);
 	Array<Array<int>> get_problem_board_start(void) const;
 	Array<Array<int>> get_problem_board_goal(void) const;
 };
@@ -37,35 +37,37 @@ Connect::Connect(void) {
 	reader_token.readLine(token);
 }
 
-void Connect::get_problem(void) {
+bool Connect::get_problem(void) {
 	const URL url = url_base + U"/problem?token=" + this->token;
 	const FilePath save_file_path = U"./problem.json";
 	if (const auto response = SimpleHTTP::Get(url, this->headers, save_file_path)) {
 		if (response.isOK()) {
 			this->get_problem_response_json = JSON::Load(save_file_path);
-			return;
+			return true;
 		}
 		else {
 			output_console_fail(U"status code:{} \t get problem"_fmt((int)response.getStatusCode()));
 		}
 	}
 	output_console_fail(U"get problem");
+	return false;
 }
 
-void Connect::post_answer(const JSON& json) {
+bool Connect::post_answer(const JSON& json) {
 	const URL url = url_base + U"/answer?token=" + this->token;
 	const FilePath save_file_path = U"./answer.json";
 	const std::string data = json.formatUTF8();
 	if (const auto response = SimpleHTTP::Post(url, this->headers, data.data(), data.size(), save_file_path)) {
 		if (response.isOK()) {
 			this->post_answer_response_json = JSON::Load(save_file_path);
-			return;
+			return true;
 		}
 		else {
 			output_console_fail(U"status code:{} \t post answer"_fmt((int)response.getStatusCode()));
 		}
 	}
 	output_console_fail(U"post answer");
+	return false;
 }
 
 Array<Array<int>> Connect::get_problem_board_start(void) const {
