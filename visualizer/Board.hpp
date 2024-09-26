@@ -57,7 +57,7 @@ void Board::initialize(const BitBoard& board, const bool is_shuffle) {
 		tmp.shuffle();
 		for (int row = 0; row < this->height; row++) {
 			for (int col = 0; col < this->width; col++) {
-				int num = tmp[row * this->height + col];
+				int num = tmp[row * this->width + col];
 				set_piece(num, row, col);
 			}
 		}
@@ -217,7 +217,7 @@ void BoardAuto::initialize(const BitBoard& board) {
 	tmp.shuffle();
 	for (int row = 0; row < this->height; row++) {
 		for (int col = 0; col < this->width; col++) {
-			int num = tmp[row * this->height + col];
+			int num = tmp[row * this->width + col];
 			set_piece(num, row, col);
 		}
 	}
