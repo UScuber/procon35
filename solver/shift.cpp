@@ -547,6 +547,157 @@ void z_algo(const uchar s[257*257], const int n, uchar z[257*257]){
   }
 }
 
+
+// 左右寄せの操作のうち、最もピースが長くつながるような操作を求める
+Operation search_best_connection(const int row, const Board& state_now, const Board& state_goal){
+  const int h = state_now.height(), w = state_now.width();
+  constexpr int L = 5;
+
+  int st_j = 0;
+  while(st_j < w && state_now[h-1][st_j] == state_goal[h-row-1][st_j]) st_j++;
+
+  vector<uchar> s(257*257), tmp(257*257);
+  vector<uchar> Zr(257*257), Zbr(257*257); // Zbr: 1個飛ばし
+  const int max_ulen = w - st_j; // 右下の未確定の場所の長さ(255に制限)
+
+  int best_len = 0;
+  Operation best_op(1U << 31);
+
+  for(int l = 1; l <= L; l++){
+    const int ulen = max_ulen - l;
+    if(ulen <= 0) break;
+
+    unsigned int l_pieces = 0; // 右下の[0,l)のピース(2bit*l) 上位bitが後のindex
+    for(int j = 0; j < l; j++){
+      l_pieces |= (unsigned int)state_goal[h-row-1][st_j + j] << (j * 2);
+    }
+
+    // Zalgo
+    for(int j = 0; j < ulen; j++){
+      s[j] = state_goal[h-row-1][st_j + l + j];
+    }
+    s[ulen] = 5; // split
+
+    // 右下にあるピースは見ていない
+    for(int i = row; i < h-1; i++){
+      for(int j = 0; j < w; j++){
+        s[(i-row)*(w+1) + ulen+1 + j] = state_now[i][j];
+      }
+      s[(i-row)*(w+1) + ulen+1 + w] = 4; // split
+    }
+    z_algo(s.data(), (h-1-row)*(w+1) + ulen+1, Zr.data());
+    // 右下のピースの値の部分を取り除く
+    for(int i = 0; i < (h-1-row)*(w+1); i++) Zr[i] = Zr[i + ulen+1];
+
+    // 1個飛ばし(偶数) 0-indexed
+    const int even_width = (w + 1) / 2;
+    for(int i = row; i < h-1; i++){
+      for(int j = 0; j < w; j += 2){
+        s[(i-row)*(even_width+1) + ulen+1 + j/2] = state_now[i][j];
+      }
+      s[(i-row)*(even_width+1) + ulen+1 + even_width] = 4; // split
+    }
+    z_algo(s.data(), (h-1-row)*(even_width+1) + ulen+1, tmp.data());
+    // Zbrにセット
+    for(int i = row; i < h-1; i++){
+      for(int j = 0; j < w; j += 2){
+        Zbr[(i-row)*(w+1) + j] = tmp[(i-row)*(even_width+1) + ulen+1 + j/2];
+      }
+    }
+
+    // 1個飛ばし(奇数)
+    const int odd_width = w / 2;
+    for(int i = row; i < h-1; i++){
+      for(int j = 1; j < w; j += 2){
+        s[(i-row)*(odd_width+1) + ulen+1 + j/2] = state_now[i][j];
+      }
+      s[(i-row)*(odd_width+1) + ulen+1 + odd_width] = 4; // split
+    }
+    z_algo(s.data(), (h-1-row)*(odd_width+1) + ulen+1, tmp.data());
+    // Zbrにセット
+    for(int i = row; i < h-1; i++){
+      for(int j = 1; j < w; j += 2){
+        Zbr[(i-row)*(w+1) + j] = tmp[(i-row)*(odd_width+1) + ulen+1 + j/2];
+      }
+    }
+
+
+    // search
+    vector<Operation> good_ops(h-1-row, Operation(1U << 31));
+    vector<int> good_lens(h-1-row);
+
+    // #pragma omp parallel for
+    for(int i = row; i < h-1; i++){
+      auto update_fn = [&](int len, const int left_pos, const int y, const int x, const int n, const bool isb, const Dir dir){
+        // if(left_pos == st_j) len += len / 2;
+        if(good_lens[i-row] >= len) return;
+        good_lens[i-row] = len;
+        const int kata = (n ? 1 + (n-1)*3 : 0) + isb*2;
+        good_ops[i-row] = Operation(kata, y, x, dir);
+      };
+
+      for(int n = 0; n <= 7; n++){
+        const int size = 1 << n;
+        unsigned int pieces_j = 0, pieces_w = 0, pieces_jn = 0;
+
+        for(int j = 0; j < l; j++){
+          pieces_w |= (unsigned int)state_now[i][w-(l-j)] << (j * 2);
+        }
+        if(l <= size) for(int j = 0; j < l; j++){
+          pieces_jn |= (unsigned int)state_now[i][size-(l-j)] << (j * 2);
+        }
+
+        for(int j = 0; j <= w - size; j++){
+          // row[j-l, j)が一致
+          // 右寄せ 13
+          if(pieces_j == l_pieces && l <= j){
+            const int len = min((int)Zr[(i-row)*(w+1) + j + size], w - (j + size));
+            update_fn(len, j+size-l, i, j, n, false, Dir::R);
+          }
+          // row[j+size-l, j+size)が一致
+          // 右寄せ 21
+          if(pieces_jn == l_pieces && l <= size){
+            const int len = min((int)Zr[(i-row)*(w+1) + 0], j);
+            update_fn(len, size-l, i, j, n, false, Dir::R);
+          }
+          // row[j-l, j)が一致
+          // 左寄せ 13
+          if(pieces_j == l_pieces && l <= j){
+            const int len = min((int)Zr[(i-row)*(w+1) + j + size], w - (j + size));
+            update_fn(len, j-l, i, j, n, false, Dir::L);
+          }
+          // row[w-l, w)が一致
+          // 左寄せ 32
+          if(pieces_w == l_pieces && l <= w-size-j){
+            const int len = min((int)Zr[(i-row)*(w+1) + j], size);
+            update_fn(len, w-size-l, i, j, n, false, Dir::L);
+          }
+
+          pieces_j >>= 2;
+          pieces_j |= (unsigned int)state_now[i][j] << ((l-1) * 2);
+          if(j + size < w){
+            pieces_jn >>= 2;
+            pieces_jn |= (unsigned int)state_now[i][j + size] << ((l-1) * 2);
+          }
+        }
+      }
+    }
+    for(int i = 0; i < h-1-row; i++){
+      if(best_len < good_lens[i]){
+        best_len = good_lens[i];
+        best_op = good_ops[i];
+      }
+    }
+  }
+  
+  cerr << "len: " << best_len << "\n";
+
+  // assert(best_op != Operation(1U << 31));
+
+  return best_op;
+}
+
+
 // 盤面の評価関数
 double evaluate_board(const int row, const Board& state_now, const Board& state_goal){
   const int h = state_now.height();
@@ -738,50 +889,57 @@ void solve_row_effi_roughly(Operations& ops, const int row, Board& state_now, co
     Operation best(1U << 31);
 
     // move none
+    // best_score = evaluate_board(row, state_now, state_goal);
+
+    best = search_best_connection(row, state_now, state_goal);
+    best.debug();
+
     best_score = evaluate_board(row, state_now, state_goal);
 
-    Operation best_op[256*2+1];
-    int best_scores[256*2+1];
-    fill(best_scores, best_scores + 256*2+1, 1000000000);
+    if(best == Operation(1U << 31)){
+      Operation best_op[256*2+1];
+      int best_scores[256*2+1];
+      fill(best_scores, best_scores + 256*2+1, 1000000000);
 
-    #pragma omp parallel for
-    for(int j = 0; j < w*2+1; j++){
-      Board *tmp_state = new Board(0, 0); // 盤面を愚直に持つとstackoverflowした
+      #pragma omp parallel for
+      for(int j = 0; j < w*2+1; j++){
+        Board *tmp_state = new Board(0, 0); // 盤面を愚直に持つとstackoverflowした
 
-      for(int i = row; i < h; i++){
-        for(int k = 0; k < (int)cutting_dies.size(); k++){
-          const int sy = i;
-          const int sx = j - (w-1);
-          if(sx + cutting_dies[k].width() <= 0) continue; // 左に行きすぎ
-          // if(sx < st_j && sy + cutting_dies[k].height() - ((k > 0 && (k-1) % 3 == 1) ? 1 : 0) >= h-1) continue;
-          for(const Dir dir : { Dir::L, Dir::R, Dir::U }){
-            // auto tmp_state = state_now;
-            // tmp_state.slide(cutting_dies[k], sy, sx, dir);
-            // const int score = evaluate_board(row, tmp_state, state_goal);
-            *tmp_state = state_now;
-            tmp_state->slide(cutting_dies[k], sy, sx, dir);
-            const int score = evaluate_board(row, *tmp_state, state_goal);
-            if(score < best_scores[j]){
-              best_scores[j] = score;
-              best_op[j] = Operation(k, sy, sx, dir);
+        for(int i = row; i < h; i++){
+          for(int k = 0; k < (int)cutting_dies.size(); k++){
+            const int sy = i;
+            const int sx = j - (w-1);
+            if(sx + cutting_dies[k].width() <= 0) continue; // 左に行きすぎ
+            // if(sx < st_j && sy + cutting_dies[k].height() - ((k > 0 && (k-1) % 3 == 1) ? 1 : 0) >= h-1) continue;
+            for(const Dir dir : { Dir::L, Dir::R, Dir::U }){
+              // auto tmp_state = state_now;
+              // tmp_state.slide(cutting_dies[k], sy, sx, dir);
+              // const int score = evaluate_board(row, tmp_state, state_goal);
+              *tmp_state = state_now;
+              tmp_state->slide(cutting_dies[k], sy, sx, dir);
+              const int score = evaluate_board(row, *tmp_state, state_goal);
+              if(score < best_scores[j]){
+                best_scores[j] = score;
+                best_op[j] = Operation(k, sy, sx, dir);
+              }
             }
           }
         }
+        delete tmp_state;
       }
-      delete tmp_state;
-    }
 
-    for(int j = 0; j < w*2+1; j++){
-      if(best_scores[j] < best_score){
-        best_score = best_scores[j];
-        best = best_op[j];
+      for(int j = 0; j < w*2+1; j++){
+        if(best_scores[j] < best_score){
+          best_score = best_scores[j];
+          best = best_op[j];
+        }
       }
     }
 
     assert(best_score < 1000000000);
 
     // 前回と同じスコアの場合、改善していないのでエラー
-    if(best != Operation(1U << 31) && prev_score != best_score){
+    if(best != Operation(1U << 31)){
       ops.push_back(best);
       state_now.slide(best);
       prev_score = best_score;
