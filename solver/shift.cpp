@@ -1078,7 +1078,7 @@ void solve_row_effi_roughly(Operations& ops, const int row, Board& state_now, co
       fill(best_scores, best_scores + 256*2+1, 1000000000);
 
       #pragma omp parallel for
-      for(int j = 0; j < w*2+1; j++){
+      for(int j = 0; j < w*2-1; j++){
         Board *tmp_state = new Board(0, 0); // 盤面を愚直に持つとstackoverflowした
 
         for(int i = row; i < h; i++){
@@ -1110,9 +1110,9 @@ void solve_row_effi_roughly(Operations& ops, const int row, Board& state_now, co
           best = best_op[j];
         }
       }
-    }
 
-    assert(best_score < 1000000000);
+      assert(best_score < 1000000000);
+    }
 
     // 前回と同じスコアの場合、改善していないのでエラー
     if(best != Operation(1U << 31)){
