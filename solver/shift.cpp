@@ -364,8 +364,7 @@ bool solve_pos_a(vector<Operation>& ops, int row, int col, Board& state_now, con
   for(int i = row; i < h; i++){
     if(state_now[i][col] != need_val) continue;
     // (i, col) を1x1の抜き型で下寄せ
-    ops.push_back({KATA_11, i, col, Dir::D});
-    state_now.slide(ops.back());
+    slide_and_output({KATA_11, i, col, Dir::D}, ops, state_now);
     return true;
   }
   return false;
@@ -379,8 +378,8 @@ bool solve_pos_a2(vector<Operation>& ops, int row, int col, Board& state_now, co
     if(state_now[i][col + 0] != need_val[0]) continue;
     if(state_now[i][col + 1] != need_val[1]) continue;
     // (i, col) を1x2の抜き型で下寄せ
-    ops.push_back({KATA_12, i, col, Dir::D});
-    state_now.slide(ops.back());
+    slide_and_output({KATA_12, i, col, Dir::D}, ops, state_now);
+
     return true;
   }
   return false;
@@ -396,23 +395,19 @@ bool solve_pos_b(vector<Operation>& ops, int row, int col, Board& state_now, con
         // 左から j - col 列を右シフト、列を合わせる
         // -> (i, j - col - 1)   を右上として256x256の抜き型で左寄せ
         // -> (i, j - col - 256) を左上として256x256の抜き型で左寄せ
-        ops.push_back({KATA_MM, i, j - col - 256, Dir::L});
-        state_now.slide(ops.back());
+        slide_and_output({KATA_MM, i, j - col - 256, Dir::L}, ops, state_now);
         
         // (i, col) を1x1の抜き型で下寄せ
-        ops.push_back({KATA_11, i, col, Dir::D});
-        state_now.slide(ops.back());
+        slide_and_output({KATA_11, i, col, Dir::D}, ops, state_now);
         return true;
       }else if(j < col){ // 左にある
         // 右から col - j 列を左シフト、列を合わせる
         // -> (i, w - (col - j)) を左上として256x256の抜き型で右寄せ
-        ops.push_back({KATA_MM, i, w - (col - j), Dir::R});
-        state_now.slide(ops.back());
+        slide_and_output({KATA_MM, i, w - (col - j), Dir::R}, ops, state_now);
         
         
         // (i, col) を1x1の抜き型で下寄せ
-        ops.push_back({KATA_11, i, col, Dir::D});
-        state_now.slide(ops.back());
+        slide_and_output({KATA_11, i, col, Dir::D}, ops, state_now);
         return true;
       }
     }
@@ -431,23 +426,27 @@ bool solve_pos_c(vector<Operation>& ops, int row, int col, Board& state_now, con
     int dist = abs(j - col);
 
     // (row, j) を下シフト
-    ops.push_back({KATA_11, row, j, Dir::U});
-    state_now.slide(ops.back());
+    slide_and_output({KATA_11, row, j, Dir::U}, ops, state_now);
 
     if(j < col){
-      ops.push_back({KATA_MM, h - 1, w - dist, Dir::R});
-      state_now.slide(ops.back());
+      slide_and_output({KATA_MM, h - 1, w - dist, Dir::R}, ops, state_now);
     }else{
-      ops.push_back({KATA_MM, h - 1, dist - 256, Dir::L});
-      state_now.slide(ops.back());
+      slide_and_output({KATA_MM, h - 1, dist - 256, Dir::L}, ops, state_now);
     }
 
     // (h - 1, col) を1x1の抜き型で上シフト
-    ops.push_back({KATA_11, h - 1, col, Dir::D});
-    state_now.slide(ops.back());
+    slide_and_output({KATA_11, h - 1, col, Dir::D}, ops, state_now);
     return true;
   }
   return false;
+}
+
+
+// スライドと更新を一度にする
+void slide_and_output(const Operation& op, Operations& ops, Board& state_now){
+  ops.push_back(op);
+  state_now.slide(op);
+  cout << op << endl;
 }
 
 
@@ -771,8 +770,7 @@ void check_unique_piece_move(Operations& ops, const int row, Board& state_now, c
   if(!must_move) return;
 
   // 1行上に上げる(1行飛びの抜き型)
-  ops.push_back({23, h-2, st_j, Dir::U});
-  state_now.slide(ops.back());
+  slide_and_output({23, h-2, st_j, Dir::U}, ops, state_now);
 
   cerr << "RB piece moved(" << ops.size() << ")\n";
 }
@@ -960,8 +958,7 @@ void solve_row_clearly(Operations& ops, const int row, Board& state_now, const B
     // 2手以内で揃えられるピース群がない
     if(max_len/2 <= 0){
       // type2の抜き型で未完成部分の行の偶奇を変える
-      ops.push_back({23, row + ((h-1 - row) & 1), 0, Dir::U});
-      state_now.slide(ops.back());
+      slide_and_output({23, row + ((h-1 - row) & 1), 0, Dir::U}, ops, state_now);
       return;
     }
 
@@ -1006,29 +1003,24 @@ void solve_row_clearly(Operations& ops, const int row, Board& state_now, const B
           // type2の抜き型を使ってst_jに持ってく
           if(abs(j - st_j) > lr_kata_size){
             if(j < st_j){
-              ops.push_back({23, i, w - abs(st_j - j), Dir::R});
-              state_now.slide(ops.back());
+              slide_and_output({23, i, w - abs(st_j - j), Dir::R}, ops, state_now);
             }else if(st_j < j){
-              ops.push_back({23, i, -256 + abs(st_j - j), Dir::L});
-              state_now.slide(ops.back());
+              slide_and_output({23, i, -256 + abs(st_j - j), Dir::L}, ops, state_now);
             }
           }else{
             if(j < st_j){
               // 右から st_j - j 行を左へもっていく
-              ops.push_back({lr_kata_id, nuki_row, w - abs(st_j - j), Dir::R});
-              state_now.slide(ops.back());
+              slide_and_output({lr_kata_id, nuki_row, w - abs(st_j - j), Dir::R}, ops, state_now);
             }else if(st_j < j){
               // 左から j - st_j 行を右へもっていく
-              ops.push_back({lr_kata_id, nuki_row, abs(st_j - j) - lr_kata_size, Dir::L});
-              state_now.slide(ops.back());
+              slide_and_output({lr_kata_id, nuki_row, abs(st_j - j) - lr_kata_size, Dir::L}, ops, state_now);
             }
             if(max_len/2 == 6 && limit == 1 && st_j == 10){
               cerr << "\n";
               state_now.debug();
               cerr << "\n";
             }
-            ops.push_back({u_kata_id, i + 1 - u_kata_size, st_j, Dir::U});
-            state_now.slide(ops.back());
+            slide_and_output({u_kata_id, i + 1 - u_kata_size, st_j, Dir::U}, ops, state_now);
           }
           moved = true;
           cerr << max_len/2 << " clearly(" << ops.size() << ")\n";
@@ -1054,6 +1046,7 @@ void solve_row_effi_roughly(Operations& ops, const int row, Board& state_now, co
 
     // solve_row_clearly(ops, row, state_now, state_goal, 3 * (w - st_j) / w);
     solve_row_clearly(ops, row, state_now, state_goal, prev_maxlen);
+    // solve_row_clearly(ops, row, state_now, state_goal, 4 * (w - st_j) / w);
 
     while(st_j < w && state_now[h-1][st_j] == state_goal[h-row-1][st_j]) st_j++;
 
@@ -1116,8 +1109,7 @@ void solve_row_effi_roughly(Operations& ops, const int row, Board& state_now, co
 
     // 前回と同じスコアの場合、改善していないのでエラー
     if(best != Operation(1U << 31)){
-      ops.push_back(best);
-      state_now.slide(best);
+      slide_and_output(best, ops, state_now);
       prev_score = best_score;
     }else{
       cerr << "\n";
@@ -1140,8 +1132,7 @@ void solve_row_effi_roughly(Operations& ops, const int row, Board& state_now, co
   for(int j = 0; j < w; j++){
     assert(state_now[h-1][j] == state_goal[h-row-1][j]);
   }
-  ops.push_back({KATA_MM, h - 1, 0, Dir::D});
-  state_now.slide(ops.back());
+  slide_and_output({KATA_MM, h - 1, 0, Dir::D}, ops, state_now);
   cerr << row << "finished, " << ops.size() << "\n";
 }
 
@@ -1155,14 +1146,12 @@ void solve_row(vector<Operation>& ops, int row, Board& state_now, const Board& s
       for(int j = i; j < w;j++){
         if(state_goal[0][w - 1 - i] == state_now[row][j]){
           // (row, j) を左シフト
-          ops.push_back({KATA_11, row, j, Dir::R});
-          state_now.slide(ops.back());
+          slide_and_output({KATA_11, row, j, Dir::R}, ops, state_now);
           break;
         }
       }
     }
-    ops.push_back({KATA_MM, h - 1, 0, Dir::D});
-    state_now.slide(ops.back());
+    slide_and_output({KATA_MM, h - 1, 0, Dir::D}, ops, state_now);
     return;
   }
 
@@ -1258,20 +1247,20 @@ int main(){
   // 手順を計算
   auto ops = solve(state_start, state_goal);
 
-  // 出力
-  cout << ops.size() << "\n";
   Board state_now = state_start;
   for(const Operation op : ops){
-    cout << op << "\n";
     state_now.slide(op);
   }
-  cout << endl;
 
   // チェック
   for(int i = 0; i < h; i++){
     for(int j = 0; j < w; j++){
-      assert(state_now[i][j] == state_goal[i][j]);
+      assert(state_now[i][j] == state_goal[i][j]+1);
     }
   }
+
+  // 操作終了
+  cout << "-1 -1 -1 -1" << endl;
+
   return 0;
 }
