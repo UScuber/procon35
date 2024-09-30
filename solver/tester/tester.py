@@ -49,7 +49,7 @@ def run_test(test_cases, cpp_dir):
         elapsed_time = (time.perf_counter() - start_time) * 1000
         
         # check
-        ops = int(output.splitlines()[0])
+        ops = len(output.splitlines()) - 1
         tester_input = input_data + output
         tester_process = subprocess.run(cpp_dir + "/tester", input=tester_input, text=True, capture_output=True)
         result = tester_process.stdout

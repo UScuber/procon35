@@ -47,21 +47,20 @@ int main(){
   }
 
 
-  // チェック  
-  int ops_num;
-  cin >> ops_num;
-
+  // チェック
   Board state_now = state_start;
-  for(int i = 0; i < ops_num; i++){
-    Operation op;
-    cin >> op;
-    state_now.slide(op);
+  while(true){
+    int kata,y,x,dir;
+    cin >> kata >> y >> x >> dir;
+    if(kata < 0) break;
+    state_now.slide({kata, y, x, (Dir)dir});
   }
 
   for(int i = 0; i < h; i++){
     for(int j = 0; j < w; j++){
       if(state_now[i][j] != state_goal[i][j]){
         cout << "NG" << endl;
+        return 0;
       }
     }
   }
