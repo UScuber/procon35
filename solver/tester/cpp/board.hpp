@@ -10,7 +10,7 @@ struct Board {
 
   Board() = delete;
   Board(const int h, const int w);
-  Board(const std::vector<std::vector<int>> &b);
+  Board(const std::vector<std::vector<int>>& b);
 
   inline uchar get(const int i, const int j) const;
   inline void set(const int i, const int j, const uchar v);
@@ -19,7 +19,7 @@ struct Board {
   inline int width() const;
 
   void slide(const Board& kata, const int posy, const int posx, const Dir dir);
-  void slide(const Operation &op);
+  void slide(const Operation& op);
 
 
   // [i][j]でアクセスする用
@@ -52,10 +52,10 @@ private:
   Bitset a[256];
   int h,w;
 
-  void left_slide(const Board &kata, const int posy, const int posx);
-  void right_slide(const Board &kata, const int posy, const int posx);
-  void up_slide(const Board &kata, const int posy, const int posx);
-  void down_slide(const Board &kata, const int posy, const int posx);
+  void left_slide(const Board& kata, const int posy, const int posx);
+  void right_slide(const Board& kata, const int posy, const int posx);
+  void up_slide(const Board& kata, const int posy, const int posx);
+  void down_slide(const Board& kata, const int posy, const int posx);
 
 };
 

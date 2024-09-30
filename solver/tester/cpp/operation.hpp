@@ -81,13 +81,13 @@ void Operation::debug() const{
   std::cerr << c << std::endl;
 }
 
-std::istream &operator>>(std::istream &is, Operation &ops){
+std::istream& operator>>(std::istream& is, Operation& ops){
   int kata,y,x,dir;
   is >> kata >> y >> x >> dir;
   ops = Operation(kata, y, x, (Dir)dir);
   return is;
 }
 
-std::ostream &operator<<(std::ostream &os, const Operation &ops){
+std::ostream& operator<<(std::ostream& os, const Operation& ops){
   return os << ops.kata_idx() << ' ' << ops.y() << ' ' << ops.x() << ' ' << (int)ops.dir();
 }
