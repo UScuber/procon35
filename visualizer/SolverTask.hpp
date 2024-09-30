@@ -22,6 +22,7 @@ public:
 	void initialize(const BitBoard& board_start, const BitBoard& board_goal);
 	size_t get_op_num(void) const;
 	Array<int> get_op(void);
+	ChildProcess& get_child(void);
 };
 
 void SolverTask::initialize(const BitBoard& board_start, const BitBoard& board_goal) {
@@ -67,6 +68,7 @@ bool SolverTask::update(void) {
 	int p, x, y, s;
 	this->child.istream() >> p >> y >> x >> s;
 	std::lock_guard lock{ this->m_mutex };
+	//Console << U"{}\t{}\t{}\t{}"_fmt(p, y, x, s);
 	this->que_ops.push(Array<int>({ p, y, x, s }));
 	this->op_num++;
 	if (p == -1 and y == -1 and x == -1 and s == -1) {
@@ -91,5 +93,9 @@ Array<int> SolverTask::get_op(void) {
 	Array<int> res = this->que_ops.front();
 	this->que_ops.pop();
 	return res;
+}
+
+ChildProcess& SolverTask::get_child(void) {
+	return this->child;
 }
 

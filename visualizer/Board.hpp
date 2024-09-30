@@ -175,176 +175,73 @@ void BoardExample::draw(void) const {
 	draw_board();
 }
 
-class BoardAuto : public Board {
-private:
-	Vec2 calc_piece_pos(int row, int col) const override;
-	ChildProcess child;
-	Array<Array<int>> board_origin;
-	int ops_idx = 0;
-	int turn_ms;
-	Stopwatch stopwatch;
-	void update_board(void);
-	void update_gui(void);
-public:
-	void initialize(const BitBoard& board);
-	JSON get_json(void) const;
-	BoardAuto(void) {};
-	void update(void);
-	void draw(void) const;
-};
-Vec2 BoardAuto::calc_piece_pos(int row, int col) const {
-	return Vec2{ col * this->piece_size, row * this->piece_size };
-}
-void BoardAuto::initialize(const BitBoard& board) {
-	set_piece_colors();
-	// wslのユーザ名読み込み
-	TextReader reader_wsl_path{ U"./wsl_path.env" };
-	if (not reader_wsl_path)  throw Error{ U"Failed to open 'wsl_path.env'" };
-	String wsl_path;
-	reader_wsl_path.readLine(wsl_path);
-	// プロセス生成
-	this->child = ChildProcess{ U"C:\\Windows\\System32\\wsl.exe", wsl_path, Pipe::StdInOut };
-	if (not this->child) throw Error{ U"Failed to create a process" };
-
-	this->height = board.height();  this->width = board.width();
-	this->piece_size = calc_piece_size();
-	this->board = BitBoard(height, width);
-	this->board_origin.resize(height, Array<int>(width));
-	Array<int> tmp;
-	for (int i = 0; i < height * width; i++) {
-		tmp << board[i / width][i % width];
-	}
-	tmp.shuffle();
-	for (int row = 0; row < this->height; row++) {
-		for (int col = 0; col < this->width; col++) {
-			int num = tmp[row * this->width + col];
-			set_piece(num, row, col);
-		}
-	}
-	for (int row = 0; row < this->height; row++) {
-		for (int col = 0; col < this->width; col++) {
-			this->board_origin[row][col] =  get_piece(row, col);
-		}
-	}
-	// プロセスに入力を与える
-	this->child.ostream() << this->height << std::endl << this->width << std::endl;
-	for (int row = 0; row < this->height; row++) {
-		String input = U"";
-		for (int col = 0; col < this->width; col++) {
-			input += Format(this->get_piece(row, col));
-		}
-		this->child.ostream() << input.narrow() << std::endl;
-	}
-	for (int row = 0; row < this->height; row++) {
-		String input = U"";
-		for (int col = 0; col < this->width; col++) {
-			input += Format(board[row][col]);
-		}
-		this->child.ostream() << input.narrow() << std::endl;
-	}
-	int n,  p, x, y, s;
-	this->child.istream() >> n;
-	for (int i = 0; i < n; i++) {
-		this->child.istream() >> p >> y >> x >> s;
-		this->datawriter.add_op(p, Point{ x,y }, (Dir)s);
-	}
-	this->datawriter.get_json().save(U"./tmp.json");
-	update_board_texture();
-}
-
-JSON BoardAuto::get_json(void) const {
-	return this->datawriter.get_json();
-}
-
-void BoardAuto::update_board(void) {
-	if (ops_idx >= this->datawriter.get_json()[U"n"].get<int>()) return;
-	if (not this->stopwatch.isRunning()) {
-		stopwatch.start();
-	}
-	else {
-		if (stopwatch.ms() >= this->turn_ms) {
-			int p, x, y, s;
-			p = this->datawriter.get_json()[U"ops"][ops_idx][U"p"].get<int>();
-			x = this->datawriter.get_json()[U"ops"][ops_idx][U"x"].get<int>();
-			y = this->datawriter.get_json()[U"ops"][ops_idx][U"y"].get<int>();
-			s = this->datawriter.get_json()[U"ops"][ops_idx][U"s"].get<int>();
-			ops_idx++;
-			move(p, x, y, (Dir)s, false);
-			//Console << U"p:{}, x:{}, y:{}, s:{}"_fmt(p, x, y, s);
-			stopwatch.restart();
-		}
-	}
-}
-
-void BoardAuto::update_gui(void) {
-	static double slider_value_tmp = 1.0;
-	SimpleGUI::SliderAt(U"{}ms"_fmt(this->turn_ms), slider_value_tmp, 0.001, 1.000, Vec2{ Scene::Center().x, Scene::Size().y * 0.85 }, 80, Scene::Size().x * 0.8);
-	this->turn_ms = slider_value_tmp * 1000.0;
-	if (SimpleGUI::Button(U"restart", Scene::Size() * 0.9)) {
-		for (int row = 0; row < this->height; row++) {
-			for (int col = 0; col < this->width; col++) {
-				int num = this->board_origin[row][col];
-				set_piece(num, row, col);
-			}
-		}
-		this->ops_idx = 0;
-		this->cnt_move = 0;
-	}
-}
-
-void BoardAuto::update(void) {
-	update_gui();
-	update_board();
-}
-void BoardAuto::draw(void) const {
-	draw_board();
-	draw_details();
-}
-
 
 
 class BoardConnect : public Board {
 private:
 	Vec2 calc_piece_pos(int row, int col) const override;
 	SolverTask solver_task;
+	bool is_network = false;
 	bool is_finished = false;
 	bool is_success_post = false;
 public:
-	void initialize(const BitBoard& board_start, const BitBoard& board_goal);
+	BoardConnect() {};
+	void initialize(const BitBoard& board_goal, const bool is_network);
+	void initialize(const BitBoard& board_start, const BitBoard& board_goal, const bool is_network);
 	JSON get_json(void) const;
-	BoardConnect(void) {};
 	void update(void);
 	void draw(void) const;
 };
 Vec2 BoardConnect::calc_piece_pos(int row, int col) const {
 	return Vec2{ col * this->piece_size, row * this->piece_size };
 }
-void BoardConnect::initialize(const BitBoard& board_start, const BitBoard& board_goal) {
+void BoardConnect::initialize(const BitBoard& board_goal, const bool is_network) {
+	this->height = board_goal.height();  this->width = board_goal.width();
+	Array<int> goal_1d;
+	for (int idx = 0; idx < this->height*this->width; idx++) {
+		goal_1d << board_goal[idx / this->width][idx % this->width];
+	}
+	goal_1d.shuffle();
+	BitBoard board_start(this->height, this->width);
+	for (int idx = 0; idx < this->height * this->width; idx++) {
+		board_start.set(idx/this->width, idx%this->width, goal_1d[idx]);
+	}
+	initialize(board_start, board_goal, is_network);
+}
+void BoardConnect::initialize(const BitBoard& board_start, const BitBoard& board_goal, const bool is_network) {
 	set_piece_colors();
-	this->height = board_start.height();  this->width = board_start.width();
+	this->is_network = is_network;
+	this->height = board_goal.height();  this->width = board_goal.width();
 	this->piece_size = calc_piece_size();
-	this->board = BitBoard(height, width);
+	this->board = BitBoard(this->height, this->width);
 	for (int row = 0; row < this->height; row++) {
 		for (int col = 0; col < this->width; col++) {
 			set_piece(board_start[row][col], row, col);
 		}
 	}
-	solver_task.initialize(board_start, board_goal);
+	this->solver_task.initialize(board_start, board_goal);
 	update_board_texture();
 }
+
+
 JSON BoardConnect::get_json(void) const {
 	return this->datawriter.get_json();
 }
-
 
 void BoardConnect::update(void) {
 	if (this->cnt_move != this->solver_task.get_op_num() and not this->is_finished) {
 		Array<int> op = this->solver_task.get_op();
 		if (op[0] == -1 and op[1] == -1 and op[2] == -1 and op[3] == -1) {
 			this->is_finished = true;
-			Connect connect;
-			this->is_success_post = connect.post_answer(this->datawriter.get_json());
-			this->datawriter.get_json().save(U"./answer.json");
+			if (this->is_network) {
+				Connect connect;
+				this->is_success_post = connect.post_answer(this->datawriter.get_json());
+				this->datawriter.get_json().save(U"./answer.json");
+			}
+		}else if (op[0] == -2 and op[1] == -2 and op[2] == -2 and op[3] == -2) {
+			String error_message;
+			this->solver_task.get_child().istream() >> error_message;
+			Console << error_message;
 		}else {
 			this->move(op[0], op[2], op[1], (Dir)op[3], true);
 		}
@@ -354,7 +251,7 @@ void BoardConnect::draw(void) const {
 	draw_board();
 	draw_details();
 	if (this->is_finished and this->is_success_post) {
-		this->font(U"post is successful!").drawAt(Vec2{ Scene::Center().x, Scene::Size().y * 13.0 / 15.0 }, Palette::Black);
+		this->font( this->is_network ? U"post is successful!" : U"Done!").drawAt(Vec2{Scene::Center().x, Scene::Size().y * 13.0 / 15.0}, Palette::Black);
 	}
 }
 

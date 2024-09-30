@@ -6,7 +6,7 @@
 class AutoScene : public App::Scene {
 private:
 	BoardExample board_example;
-	BoardAuto board_auto;
+	BoardConnect board_auto;
 public:
 	AutoScene(const InitData& init);
 	void update(void) override;
@@ -16,7 +16,7 @@ AutoScene::AutoScene(const InitData& init) : IScene{ init } {
 	Optional<FilePath> path = Dialog::OpenFile({ FileFilter::Text() });
 	if (not path) return;
 	this->board_example.initialize(path.value());
-	this->board_auto.initialize(this->board_example.get_board());
+	this->board_auto.initialize(this->board_example.get_board(), false);
 }
 void AutoScene::update(void) {
 	if (KeyP.down()) changeScene(U"SelectScene");
@@ -40,7 +40,7 @@ public:
 ConnectScene::ConnectScene(const InitData& init) : IScene{ init } {
 	this->connect.get_problem();
 	this->board_example.initialize(this->connect.get_problem_board_goal(), false);
-	this->board_connect.initialize(this->connect.get_problem_board_start(), this->connect.get_problem_board_goal());
+	this->board_connect.initialize(this->connect.get_problem_board_start(), this->connect.get_problem_board_goal(), true);
 }
 void ConnectScene::update(void) {
 	if (KeyP.down()) changeScene(U"SelectScene");
