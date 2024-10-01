@@ -40,8 +40,8 @@ public:
 	void set_piece_colors(void);
 	//////////////////////////////////////////////////////////////
 	// update
-	void move(int p, int x, int y, Dir dir, bool enable_json);  // 指定して移動
-	void move(int p, const Point& pos, Dir dir, bool enable_json);
+	void move(int p, int x, int y, Dir dir, bool enable_json, bool enable_update_texture);  // 指定して移動
+	void move(int p, const Point& pos, Dir dir, bool enable_json, bool enable_update_texture);
 	void update_board_texture(void); // ボードのテクスチャを更新
 	//////////////////////////////////////////////////////////////
 	// draw
@@ -126,14 +126,14 @@ void Board::set_piece_colors(void) {
 	}
 }
 
-void Board::move(int p, int x, int y, Dir dir, bool enable_json){
-	this->move(p, Point{ x,y }, dir, enable_json);
+void Board::move(int p, int x, int y, Dir dir, bool enable_json, bool enable_update_texture){
+	this->move(p, Point{ x,y }, dir, enable_json, enable_update_texture);
 }
-void Board::move(int p, const Point& pos, Dir dir, bool enable_json) {
+void Board::move(int p, const Point& pos, Dir dir, bool enable_json, bool enable_update_texture = true) {
 	// スライドさせる
 	this->get_board_ref().slide(this->patterns.get_pattern(p), pos.y, pos.x, dir);
 	this->cnt_move++;
-	update_board_texture();
+	if(enable_update_texture) update_board_texture();
 	// 行動ログを追加
 	if(enable_json) this->datawriter.add_op(p, pos, dir);
 }
@@ -230,7 +230,7 @@ void BoardConnect::update(void) {
 	if (this->cnt_move != this->solver_task.get_op_num() and not this->is_finished) {
 		uint64 total_move_time = 0;
 		const Array<Array<int>> ops = this->solver_task.get_op();
-		for (const Array<int>&op : ops) {
+		for (const Array<int>& op : ops) {
 			if (op[0] == -1 and op[1] == -1 and op[2] == -1 and op[3] == -1) {
 				this->is_finished = true;
 				if (this->is_network) {
@@ -244,11 +244,11 @@ void BoardConnect::update(void) {
 				Console << error_message;
 			}else {
 				uint64 time_now = Time::GetMicrosecSinceEpoch();
-				this->move(op[0], op[2], op[1], (Dir)op[3], true);
+				this->move(op[0], op[2], op[1], (Dir)op[3], true, false);
 				total_move_time += (Time::GetMicrosecSinceEpoch() - time_now);
-				this->draw_board();
 			}
 		}
+		update_board_texture();
 		Console << U"total_move_time={}ms"_fmt(total_move_time/1000);
 	}
 }
