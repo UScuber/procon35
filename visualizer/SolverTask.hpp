@@ -21,7 +21,7 @@ public:
 	~SolverTask();
 	void initialize(const BitBoard& board_start, const BitBoard& board_goal);
 	size_t get_op_num(void) const;
-	Array<int> get_op(void);
+	Array<Array<int>> get_op(void);
 	ChildProcess& get_child(void);
 };
 
@@ -51,7 +51,7 @@ void SolverTask::initialize(const BitBoard& board_start, const BitBoard& board_g
 		}
 		this->child.ostream() << input.narrow() << std::endl;
 	}
-
+	
 	// 非同期処理
 	this->task = Async(Update, this);
 
@@ -88,10 +88,15 @@ void SolverTask::Update(SolverTask* solver_task) {
 size_t SolverTask::get_op_num(void) const {
 	return this->op_num;
 }
-Array<int> SolverTask::get_op(void) {
+Array<Array<int>> SolverTask::get_op(void) {
+	Array<Array<int>> res;
 	std::lock_guard lock{ this->m_mutex };
-	Array<int> res = this->que_ops.front();
-	this->que_ops.pop();
+	Console << this->que_ops.size();
+	while (not que_ops.empty()){
+		res.push_back(this->que_ops.front());
+		this->que_ops.pop();
+	}
+	Console << U"complete";
 	return res;
 }
 

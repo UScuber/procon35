@@ -7,6 +7,8 @@
 # include "SolverTask.hpp"
 # include "Connect.hpp"
 
+#include <chrono>
+
 class Board {
 public:
 	//////////////////////////////////////////////////////////////
@@ -29,6 +31,7 @@ public:
 	virtual Vec2 calc_piece_pos(int row, int col) const = 0;  // ピースの座標計算
 	double calc_piece_size(void);  // ピースの大きさを計算
 	BitBoard get_board(void) const;  // ボードを取得する
+	BitBoard& get_board_ref(void);  // ボードを参照で取得
 	int get_piece(const int y, const int x) const; // 座標を指定してピースを取得する
 	void set_piece(const int num, const int y, const int x);  // 座標を指定してピースをセット
 	Color get_piece_color(const int num) const;  // ピースの番号から色を取得する
@@ -94,6 +97,9 @@ bool Board::is_in_board(const int y, const int x) const {
 BitBoard Board::get_board(void) const {
 	return this->board;
 }
+BitBoard& Board::get_board_ref(void) {
+	return this->board;
+}
 int Board::get_piece(const int y, const int x) const {
 	return this->board[y][x];
 }
@@ -125,15 +131,7 @@ void Board::move(int p, int x, int y, Dir dir, bool enable_json){
 }
 void Board::move(int p, const Point& pos, Dir dir, bool enable_json) {
 	// スライドさせる
-	//Array<Array<int>> slided = slide(get_board(), this->patterns.get_pattern(p), pos, dir);
-	BitBoard slided = get_board();
-	slided.slide(this->patterns.get_pattern(p), pos.y, pos.x, dir);
-	// スライド後の番号をピースに適用
-	for (int row = 0; row < this->height; row++) {
-		for (int col = 0; col < this->width; col++) {
-			this->board[row][col] = slided[row][col];
-		}
-	}
+	this->get_board_ref().slide(this->patterns.get_pattern(p), pos.y, pos.x, dir);
 	this->cnt_move++;
 	update_board_texture();
 	// 行動ログを追加
@@ -230,21 +228,28 @@ JSON BoardConnect::get_json(void) const {
 
 void BoardConnect::update(void) {
 	if (this->cnt_move != this->solver_task.get_op_num() and not this->is_finished) {
-		Array<int> op = this->solver_task.get_op();
-		if (op[0] == -1 and op[1] == -1 and op[2] == -1 and op[3] == -1) {
-			this->is_finished = true;
-			if (this->is_network) {
-				Connect connect;
-				this->is_success_post = connect.post_answer(this->datawriter.get_json());
-				this->datawriter.get_json().save(U"./answer.json");
+		uint64 total_move_time = 0;
+		const Array<Array<int>> ops = this->solver_task.get_op();
+		for (const Array<int>&op : ops) {
+			if (op[0] == -1 and op[1] == -1 and op[2] == -1 and op[3] == -1) {
+				this->is_finished = true;
+				if (this->is_network) {
+					Connect connect;
+					this->is_success_post = connect.post_answer(this->datawriter.get_json());
+					this->datawriter.get_json().save(U"./answer.json");
+				}
+			}else if (op[0] == -2 and op[1] == -2 and op[2] == -2 and op[3] == -2) {
+				String error_message;
+				this->solver_task.get_child().istream() >> error_message;
+				Console << error_message;
+			}else {
+				uint64 time_now = Time::GetMicrosecSinceEpoch();
+				this->move(op[0], op[2], op[1], (Dir)op[3], true);
+				total_move_time += (Time::GetMicrosecSinceEpoch() - time_now);
+				this->draw_board();
 			}
-		}else if (op[0] == -2 and op[1] == -2 and op[2] == -2 and op[3] == -2) {
-			String error_message;
-			this->solver_task.get_child().istream() >> error_message;
-			Console << error_message;
-		}else {
-			this->move(op[0], op[2], op[1], (Dir)op[3], true);
 		}
+		Console << U"total_move_time={}ms"_fmt(total_move_time/1000);
 	}
 }
 void BoardConnect::draw(void) const {
