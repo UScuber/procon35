@@ -202,6 +202,155 @@ void z_algo(const uchar s[257*257], const int n, uchar z[257*257]){
 }
 
 
+void solve_last_row(Operations& ops, Board& state_now, const Board& state_goal){
+  const int h = state_now.height(), w = state_now.width();
+
+  // 右側にそろっている量を計算
+  uchar s[257*2], z[257*2];
+  for(int j = 0; j < w; j++){
+    s[j] = state_goal[0][j];
+  }
+  s[w] = 5; // split
+  for(int j = 0; j < w; j++){
+    s[w+1 + j] = state_now[h-1][j];
+  }
+  z_algo(s, w*2+1, z);
+  int cur_maxlen = 0;
+  for(int j = 0; j < w; j++){
+    if((int)z[w+1 + j] + j == w){
+      cur_maxlen = (int)z[w+1 + j];
+      break;
+    }
+  }
+
+  // 左側に欲しいピースを順に右端に移してそろえる
+  while(true){
+    bool ok = true;
+    for(int j = 0; j < w; j++){
+      if(state_now[h-1][j] != state_goal[0][j]){
+        ok = false;
+        break;
+      }
+    }
+    if(ok) break;
+
+    Operation best_op;
+    int best_len = 0, best_op_num = 1000;
+
+    // 抜き型と移動方法は全探索
+    for(int k = 0; k < (int)cutting_dies.size(); k++){
+      if(k > 0 && (k-1) % 3 == 1) continue; // except type2
+
+      for(int sx = -(int)cutting_dies[k].width()+1; sx+(int)cutting_dies[k].width() <= w-cur_maxlen; sx++){
+        // 移動して、あとで余分なピースを左に戻す
+        vector<uchar> v; // 右端に行くピース
+        for(int j = max(sx, 0); j < min(sx+(int)cutting_dies[k].width(), w); j++){
+          if(cutting_dies[k][0][j - sx]) v.push_back(state_now[h-1][j]);
+        }
+        const int insert_num = v.size();
+        vector<uchar> selected(insert_num);
+
+        // dp[j][l]: jまで見て、長さlの時の、操作回数の最小値(255を超える場合は255にclipする)
+        vector<vector<short>> dp(insert_num+1, vector<short>(insert_num+1, w*2));
+        dp[0][0] = 1;
+        for(int j = 0; j < insert_num; j++){
+          for(int l = 0; l < insert_num; l++){
+            if(dp[j][l] >= w*2) continue;
+            if(v[j] == state_goal[0][cur_maxlen + l]){
+              dp[j+1][l+1] = min(dp[j+1][l+1], dp[j][l]);
+            }
+            for(int n = 0; j + (1 << n) <= insert_num; n++){
+              dp[j + (1 << n)][l] = min<short>(dp[j + (1 << n)][l], dp[j][l] + 1);
+            }
+          }
+        }
+        int best_idx = 0;
+        for(int l = 1; l <= insert_num; l++){
+          if(best_idx * dp[insert_num][l] < l * dp[insert_num][best_idx]) best_idx = l;
+        }
+
+        // 1個もそろってない
+        if(!insert_num || dp[insert_num][best_idx] >= w*2) continue;
+
+        assert(best_idx >= 1);
+
+        if(best_len * dp[insert_num][best_idx] < best_idx * best_op_num){
+          best_len = best_idx;
+          best_op = Operation(k, h-1, sx, Dir::L);
+          best_op_num = dp[insert_num][best_idx];
+        }
+      }
+    }
+    assert(best_len >= 1);
+
+
+    // bestを処理
+    vector<uchar> v; // 右端に行くピース
+    for(int j = max(best_op.x(), 0); j < min(best_op.x()+(int)cutting_dies[best_op.kata_idx()].width(), w); j++){
+      if(cutting_dies[best_op.kata_idx()][0][j - best_op.x()]) v.push_back(state_now[h-1][j]);
+    }
+    const int insert_num = v.size();
+    vector<uchar> selected(insert_num);
+
+    // dp[j][l]: jまで見て、長さlの時の、操作回数の最小値(255を超える場合は255にclipする)
+    vector<vector<int>> dp(insert_num+1, vector<int>(insert_num+1, w*2));
+    vector<vector<int>> prev(insert_num+1, vector<int>(insert_num+1, -2));
+    dp[0][0] = 1;
+    for(int j = 0; j < insert_num; j++){
+      for(int l = 0; l < insert_num; l++){
+        if(v[j] == state_goal[0][cur_maxlen + l]){
+          if(dp[j+1][l+1] > dp[j][l]){
+            dp[j+1][l+1] = dp[j][l];
+            prev[j+1][l+1] = -1;
+          }
+        }
+        for(int n = 0; j + (1 << n) <= insert_num; n++){
+          if(dp[j + (1 << n)][l] > dp[j][l] + 1){
+            dp[j + (1 << n)][l] = dp[j][l] + 1;
+            prev[j + (1 << n)][l] = n;
+          }
+        }
+      }
+    }
+    int best_idx = 0;
+    for(int l = 1; l <= insert_num; l++){
+      if(best_idx * dp[insert_num][l] < l * dp[insert_num][best_idx]) best_idx = l;
+    }
+
+    assert(insert_num && dp[insert_num][best_idx] < w*2);
+    assert(best_idx >= 1);
+
+    // 復元
+    vector<pair<int,int>> lefts; // 左に寄せるピースの情報
+    int cur_j = insert_num, cur_l = best_idx;
+    while(cur_j >= 1){
+      const int p = prev[cur_j][cur_l];
+      if(p == -1){
+        cur_j--;
+        cur_l--;
+      }else{
+        cur_j -= (1 << p);
+        lefts.push_back({cur_j, p});
+      }
+    }
+    assert(dp[insert_num][best_idx] == (int)lefts.size() + 1);
+    assert(best_len == best_idx);
+
+    // 操作更新
+    slide_and_output(best_op, ops, state_now);
+    reverse(lefts.begin(), lefts.end());
+    for(const auto &x : lefts){
+      const int kata = x.second >= 1 ? (x.second-1)*3 + 1 : 0;
+      slide_and_output({kata, h-1, x.first + (w - insert_num), Dir::R}, ops, state_now);
+    }
+
+    cur_maxlen += best_len;
+  }
+
+  slide_and_output({KATA_MM, h-1, 0, Dir::D}, ops, state_now);
+}
+
+
 // 左右寄せの操作のうち、最もピースが長くつながるような操作を求める
 pair<Operation, int> search_best_connection(const int row, const Board& state_now, const Board& state_goal){
   const int h = state_now.height(), w = state_now.width();
@@ -797,16 +946,7 @@ void solve_row(vector<Operation>& ops, int row, Board& state_now, const Board& s
   const int h = state_now.height(), w = state_now.width();
   vector<bool> used(w);
   if(row == h - 1){
-    for(int i = 0; i < w;i++){
-      for(int j = i; j < w;j++){
-        if(state_goal[0][w - 1 - i] == state_now[row][j]){
-          // (row, j) を左シフト
-          slide_and_output({KATA_11, row, j, Dir::R}, ops, state_now);
-          break;
-        }
-      }
-    }
-    slide_and_output({KATA_MM, h - 1, 0, Dir::D}, ops, state_now);
+    solve_last_row(ops, state_now, state_goal);
     return;
   }
 
