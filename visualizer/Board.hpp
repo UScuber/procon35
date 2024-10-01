@@ -228,7 +228,6 @@ JSON BoardConnect::get_json(void) const {
 
 void BoardConnect::update(void) {
 	if (this->cnt_move != this->solver_task.get_op_num() and not this->is_finished) {
-		uint64 total_move_time = 0;
 		const Array<Array<int>> ops = this->solver_task.get_op();
 		for (const Array<int>& op : ops) {
 			if (op[0] == -1 and op[1] == -1 and op[2] == -1 and op[3] == -1) {
@@ -243,13 +242,10 @@ void BoardConnect::update(void) {
 				this->solver_task.get_child().istream() >> error_message;
 				Console << error_message;
 			}else {
-				uint64 time_now = Time::GetMicrosecSinceEpoch();
 				this->move(op[0], op[2], op[1], (Dir)op[3], true, false);
-				total_move_time += (Time::GetMicrosecSinceEpoch() - time_now);
 			}
 		}
 		update_board_texture();
-		Console << U"total_move_time={}ms"_fmt(total_move_time/1000);
 	}
 }
 void BoardConnect::draw(void) const {

@@ -91,12 +91,10 @@ size_t SolverTask::get_op_num(void) const {
 Array<Array<int>> SolverTask::get_op(void) {
 	Array<Array<int>> res;
 	std::lock_guard lock{ this->m_mutex };
-	Console << this->que_ops.size();
 	while (not que_ops.empty()){
 		res.push_back(this->que_ops.front());
 		this->que_ops.pop();
 	}
-	Console << U"complete";
 	return res;
 }
 
