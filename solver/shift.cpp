@@ -206,7 +206,7 @@ void solve_last_row(Operations& ops, Board& state_now, const Board& state_goal){
   const int h = state_now.height(), w = state_now.width();
 
   // 右側にそろっている量を計算
-  uchar s[257*2], z[257*2];
+  vector<uchar> s(257*2), z(257*2);
   for(int j = 0; j < w; j++){
     s[j] = state_goal[0][j];
   }
@@ -214,7 +214,7 @@ void solve_last_row(Operations& ops, Board& state_now, const Board& state_goal){
   for(int j = 0; j < w; j++){
     s[w+1 + j] = state_now[h-1][j];
   }
-  z_algo(s, w*2+1, z);
+  z_algo(s.data(), w*2+1, z.data());
   int cur_maxlen = 0;
   for(int j = 0; j < w; j++){
     if((int)z[w+1 + j] + j == w){
@@ -248,36 +248,41 @@ void solve_last_row(Operations& ops, Board& state_now, const Board& state_goal){
           if(cutting_dies[k][0][j - sx]) v.push_back(state_now[h-1][j]);
         }
         const int insert_num = v.size();
-        vector<uchar> selected(insert_num);
 
-        // dp[j][l]: jまで見て、長さlの時の、操作回数の最小値(255を超える場合は255にclipする)
-        vector<vector<short>> dp(insert_num+1, vector<short>(insert_num+1, w*2));
-        dp[0][0] = 1;
+        const int m = insert_num + 1;
+        // dp[j*m + l]: jまで見て、長さlの時の、操作回数の最小値(255を超える場合は255にclipする)
+        short dp[257*257];
+        fill(dp, dp + m*m, w*2);
+        dp[0] = 1;
         for(int j = 0; j < insert_num; j++){
-          for(int l = 0; l < insert_num; l++){
-            if(dp[j][l] >= w*2) continue;
-            if(v[j] == state_goal[0][cur_maxlen + l]){
-              dp[j+1][l+1] = min(dp[j+1][l+1], dp[j][l]);
+          for(int l = 0; l <= insert_num; l++){
+            if(dp[j*m + l] >= w*2) continue;
+            // 右にそろえる分
+            if(l < insert_num && v[j] == state_goal[0][cur_maxlen + l]){
+              dp[(j+1)*m + l+1] = min(dp[(j+1)*m + l+1], dp[j*m + l]);
             }
+            // 左に戻す分
             for(int n = 0; j + (1 << n) <= insert_num; n++){
-              dp[j + (1 << n)][l] = min<short>(dp[j + (1 << n)][l], dp[j][l] + 1);
+              dp[(j + (1 << n))*m + l] = min<short>(dp[(j + (1 << n))*m + l], dp[j*m + l] + 1);
             }
+            // lastは好きな長さでできる
+            dp[insert_num*m + l] = min<short>(dp[insert_num*m + l], dp[j*m + l] + 1);
           }
         }
         int best_idx = 0;
         for(int l = 1; l <= insert_num; l++){
-          if(best_idx * dp[insert_num][l] < l * dp[insert_num][best_idx]) best_idx = l;
+          if(best_idx * dp[insert_num*m + l] < l * dp[insert_num*m + best_idx]) best_idx = l;
         }
 
         // 1個もそろってない
-        if(!insert_num || dp[insert_num][best_idx] >= w*2) continue;
+        if(!insert_num || dp[insert_num*m + best_idx] >= w*2) continue;
 
         assert(best_idx >= 1);
 
-        if(best_len * dp[insert_num][best_idx] < best_idx * best_op_num){
+        if(best_len * dp[insert_num*m + best_idx] < best_idx * best_op_num){
           best_len = best_idx;
           best_op = Operation(k, h-1, sx, Dir::L);
-          best_op_num = dp[insert_num][best_idx];
+          best_op_num = dp[insert_num*m + best_idx];
         }
       }
     }
@@ -294,21 +299,29 @@ void solve_last_row(Operations& ops, Board& state_now, const Board& state_goal){
 
     // dp[j][l]: jまで見て、長さlの時の、操作回数の最小値(255を超える場合は255にclipする)
     vector<vector<int>> dp(insert_num+1, vector<int>(insert_num+1, w*2));
+    // -1: そろえるピース, 0~8: 左に戻す, 16~: 左に戻す(last)
     vector<vector<int>> prev(insert_num+1, vector<int>(insert_num+1, -2));
     dp[0][0] = 1;
     for(int j = 0; j < insert_num; j++){
-      for(int l = 0; l < insert_num; l++){
-        if(v[j] == state_goal[0][cur_maxlen + l]){
+      for(int l = 0; l <= insert_num; l++){
+        // 右にそろえる分
+        if(l < insert_num && v[j] == state_goal[0][cur_maxlen + l]){
           if(dp[j+1][l+1] > dp[j][l]){
             dp[j+1][l+1] = dp[j][l];
             prev[j+1][l+1] = -1;
           }
         }
+        // 左に戻す分
         for(int n = 0; j + (1 << n) <= insert_num; n++){
           if(dp[j + (1 << n)][l] > dp[j][l] + 1){
             dp[j + (1 << n)][l] = dp[j][l] + 1;
             prev[j + (1 << n)][l] = n;
           }
+        }
+        // lastは好きな長さでできる
+        if(dp[insert_num][l] > dp[j][l] + 1){
+          dp[insert_num][l] = dp[j][l] + 1;
+          prev[insert_num][l] = 16 + j;
         }
       }
     }
@@ -328,9 +341,12 @@ void solve_last_row(Operations& ops, Board& state_now, const Board& state_goal){
       if(p == -1){
         cur_j--;
         cur_l--;
-      }else{
+      }else if(p < 16){
         cur_j -= (1 << p);
         lefts.push_back({cur_j, p});
+      }else{
+        cur_j = p - 16;
+        lefts.push_back({cur_j, 8});
       }
     }
     assert(dp[insert_num][best_idx] == (int)lefts.size() + 1);
