@@ -71,7 +71,8 @@ bool SolverTask::update(void) {
 	//Console << U"{}\t{}\t{}\t{}"_fmt(p, y, x, s);
 	this->que_ops.push(Array<int>({ p, y, x, s }));
 	this->op_num++;
-	if (p == -1 and y == -1 and x == -1 and s == -1) {
+	if ((p == -1 and y == -1 and x == -1 and s == -1) or
+		(p == -2 and y == -2 and x == -2 and s == -2)) {
 		return true;
 	}
 	return false;

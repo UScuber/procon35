@@ -238,9 +238,10 @@ void BoardConnect::update(void) {
 					this->datawriter.get_json().save(U"./answer.json");
 				}
 			}else if (op[0] == -2 and op[1] == -2 and op[2] == -2 and op[3] == -2) {
-				String error_message;
-				this->solver_task.get_child().istream() >> error_message;
-				Console << error_message;
+				std::string error_message;
+				std::getline(this->solver_task.get_child().istream(), error_message);
+				Console << Unicode::Widen(error_message);
+				this->is_finished = true;
 			}else {
 				this->move(op[0], op[2], op[1], (Dir)op[3], true, false);
 			}
