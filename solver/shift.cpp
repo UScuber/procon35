@@ -367,6 +367,36 @@ void solve_last_row(Operations& ops, Board& state_now, const Board& state_goal){
 }
 
 
+int find_max_len(const int row, const int st_j, const Board& state_now, const Board& state_goal){
+  const int h = state_now.height(), w = state_now.width();
+
+  if(st_j >= w) return 0;
+
+  // uchar s[257*257], z[257*257];
+  vector<uchar> s(257*257), z(257*257);
+  const int ulen = w - st_j; // 右下の未確定の場所の長さ
+  for(int j = 0; j < ulen; j++){
+    s[j] = state_goal[h-row-1][st_j + j];
+  }
+  s[ulen] = 5; // split
+  for(int i = row; i < h-1; i++){
+    for(int j = 0; j < w; j++){
+      s[(i-row)*(w+1) + ulen+1 + j] = state_now[i][j];
+    }
+    s[(i-row)*(w+1) + ulen+1 + w] = 4; // split
+  }
+
+  z_algo(s.data(), (h-1-row)*(w+1) + ulen+1, z.data());
+
+  int max_len = 0;
+  for(int i = row; i < h-1; i++){
+    for(int j = 0; j < w; j++){
+      max_len = max(max_len, (int)z[(i-row)*(w+1) + ulen+1 + j]);
+    }
+  }
+  return max_len;
+}
+
 // 左右寄せの操作のうち、最もピースが長くつながるような操作を求める
 pair<Operation, int> search_best_connection(const int row, const Board& state_now, const Board& state_goal){
   const int h = state_now.height(), w = state_now.width();
@@ -414,7 +444,7 @@ pair<Operation, int> search_best_connection(const int row, const Board& state_no
     // cerr << "\n";
     // for(int i = row; i < h-1; i++){
     //   for(int j = 0; j <= w; j++) cerr << min((int)Zr[(i-row)*(w+1) + j + ulen+1], 9);
-    //   cerr << "\n";
+    //   cerr << "\n";\\
     // }
     // cerr << "\n";
     // for(int j = 0; j < ulen+1; j++) cerr << min((int)s[j], 9);
@@ -472,6 +502,7 @@ pair<Operation, int> search_best_connection(const int row, const Board& state_no
         if(good_lens[i-row] >= len) return;
         const int dist = abs(st_j - left_pos);
         int score = len*10;
+        if(!dist) score += score / 2;
         if(lr_kata_size < dist) score -= dist - lr_kata_size;
         if(good_scores[i-row] >= score) return;
         good_lens[i-row] = len;
@@ -482,13 +513,21 @@ pair<Operation, int> search_best_connection(const int row, const Board& state_no
 
       for(int n = 0; n <= 7; n++){
         const int size = 1 << n;
+
+        if(i + size >= h-1) break;
+
         unsigned int pieces_j = 0, pieces_w = 0, pieces_jn = 0;
+        unsigned int pieces_bjn1 = 0, pieces_bjn2 = 0; // j+2^n-1, j+2^n-2
 
         for(int j = 0; j < l; j++){
           pieces_w |= (unsigned int)state_now[i][w-(l-j)] << (j * 2);
         }
         if(l <= size) for(int j = 0; j < l; j++){
           pieces_jn |= (unsigned int)state_now[i][size-(l-j)] << (j * 2);
+        }
+        if(n >= 1 && l <= size/2) for(int j = 0; j < l; j++){
+          pieces_bjn1 |= (unsigned int)state_now[i][size-(l*2-j*2-1)] << (j * 2);
+          pieces_bjn2 |= (unsigned int)state_now[i][size-(l*2-j*2)] << (j * 2);
         }
 
         for(int j = 0; j <= w - size; j++){
@@ -517,11 +556,49 @@ pair<Operation, int> search_best_connection(const int row, const Board& state_no
             update_fn(len, w-size-l, i, j, n, false, Dir::L);
           }
 
+
+          // 右寄せ 21
+          if(pieces_bjn2 == l_pieces && n >= 1 && l <= size/2){
+            const int len = min((int)Zr[(i-row)*(w+1) + 0], j);
+            update_fn(len, size/2-l, i, j, n, true, Dir::R);
+          }
+          // 右寄せ 13
+          if(pieces_j == l_pieces && n >= 1 && l <= j){
+            const int len = min((int)Zbr[(i-row)*(w+1) + j + 1], size / 2);
+            update_fn(len, j+size/2-l, i, j, n, true, Dir::R);
+          }
+          // 右寄せ 34
+          if(pieces_bjn1 == l_pieces && n >= 1 && l <= size/2){
+            const int len = min((int)Zr[(i-row)*(w+1) + j + size], w - (j + size));
+            update_fn(len, j+size-l, i, j, n, true, Dir::R);
+          }
+
+          // 左寄せ 13
+          if(pieces_j == l_pieces && n >= 1 && l <= j){
+            const int len = min((int)Zbr[(i-row)*(w+1) + j + 1], size/2);
+            update_fn(len, j-l, i, j, n, true, Dir::L);
+          }
+          // 左寄せ 34
+          if(pieces_bjn1 == l_pieces && n >= 1 && l <= size/2){
+            const int len = min((int)Zr[(i-row)*(w+1) + j + size], w - (j + size));
+            update_fn(len, j+size/2-l, i, j, n, true, Dir::L);
+          }
+          // 左寄せ 42
+          if(pieces_w == l_pieces && n >= 1 && l <= w-size-j){
+            const int len = min((int)Zbr[(i-row)*(w+1) + j], size/2);
+            update_fn(len, w-size/2-l, i, j, n, true, Dir::L);
+          }
+
           pieces_j >>= 2;
           pieces_j |= (unsigned int)state_now[i][j] << ((l-1) * 2);
-          if(j + size < w){
+          if(j + size < w && l >= 1){
             pieces_jn >>= 2;
             pieces_jn |= (unsigned int)state_now[i][j + size] << ((l-1) * 2);
+          }
+          if(n >= 1 && l <= size/2 && l >= 1){
+            pieces_bjn2 >>= 2;
+            pieces_bjn2 |= (unsigned int)state_now[i][j + size] << ((l-1) * 2);
+            swap(pieces_bjn1, pieces_bjn2);
           }
         }
       }
@@ -538,31 +615,52 @@ pair<Operation, int> search_best_connection(const int row, const Board& state_no
   static int count = 0;
   cerr << "len: " << best_len << "\n";
   // count++;
-  // if(best_len >= 0 && count <= 3){
-  //   best_op.debug();
-  //   cerr << "\n";
-  //   cerr << "row: " << row << ", stj: " << st_j << "\n";
-  //   // state_now.debug();
-  //   // cerr << "\n";
-  //   for(int j = 0; j < best_op.x(); j++) cerr << (int)state_now[best_op.y()][j];
-  //   cerr << "|";
-  //   for(int j = best_op.x(); j < w; j++) cerr << (int)state_now[best_op.y()][j];
-  //   cerr << "\n";
-  //   cerr << "\n";
-  //   for(int j = 0; j < st_j; j++) cerr << (int)state_goal[h-row-1][j];
-  //   cerr << "|";
-  //   for(int j = st_j; j < w; j++) cerr << (int)state_goal[h-row-1][j];
-  //   cerr << "\n";
-  //   cerr << "\n";
-  //   for(int j = 0; j < w; j++) cerr << (int)Zr[(best_op.y()-row)*(w+1) + j];
-  //   cerr << "\n";
-  //   // if(count >= 3) exit(0);
-  // }
+  if(best_len >= 17){
+    best_op.debug();
+    cerr << "\n";
+    cerr << "row: " << row << ", stj: " << st_j << "\n";
+    // state_now.debug();
+    // cerr << "\n";
+    for(int j = 0; j < best_op.x(); j++) cerr << (int)state_now[best_op.y()][j];
+    cerr << "|";
+    for(int j = best_op.x(); j < w; j++) cerr << (int)state_now[best_op.y()][j];
+    cerr << "\n";
+    cerr << "\n";
+    for(int j = 0; j < st_j; j++) cerr << (int)state_goal[h-row-1][j];
+    cerr << "|";
+    for(int j = st_j; j < w; j++) cerr << (int)state_goal[h-row-1][j];
+    cerr << "\n";
+    cerr << "\n";
+    for(int j = 0; j < w; j++) cerr << (int)Zr[(best_op.y()-row)*(w+1) + j];
+    cerr << "\n";
+    // if(count >= 3) exit(0);
+  }
 
   // assert(best_op != Operation(1U << 31));
 
+  Board tmp_state = state_now;
+  tmp_state.slide(best_op);
+  // best_op.debug();
+  // for(int j = 0; j < best_op.x(); j++) cerr << (int)state_now[best_op.y()][j];
+  // cerr << "|";
+  // for(int j = best_op.x(); j < w; j++) cerr << (int)state_now[best_op.y()][j];
+  // cerr << "\n";
+  // for(int j = 0; j < best_op.x(); j++) cerr << (int)tmp_state[best_op.y()][j];
+  // cerr << "|";
+  // for(int j = best_op.x(); j < w; j++) cerr << (int)tmp_state[best_op.y()][j];
+  // cerr << "\n";
+  // cerr << "\n";
+  // for(int j = 0; j < st_j; j++) cerr << (int)state_goal[h-row-1][j];
+  // cerr << "|";
+  // for(int j = st_j; j < w; j++) cerr << (int)state_goal[h-row-1][j];
+  // cerr << "\n";
+  const int found_maxlen = find_max_len(row, st_j, tmp_state, state_goal);
+  // cerr << "found maxlen: " << found_maxlen << "\n";
+  assert(best_len <= found_maxlen);
+
   return { best_op, best_len };
 }
+
 
 
 // 揃えたいピースが右下にしかない場合、適当に上に持ってくる
@@ -780,6 +878,15 @@ void solve_row_clearly(Operations& ops, const int row, Board& state_now, const B
       // type2の抜き型で未完成部分の行の偶奇を変える
       slide_and_output({23, row + ((h-1 - row) & 1), 0, Dir::U}, ops, state_now);
       return;
+    }
+
+    const auto best_connection = search_best_connection(row, state_now, state_goal);
+    const int longest = find_max_len(row, st_j, state_now, state_goal);
+    if(longest * 3 < (1 + !(max_len & 1)) * best_connection.second){
+      cerr << "longest: " << longest << " " << best_connection.second << "\n";
+      cerr << "connection is better\n";
+      slide_and_output(best_connection.first, ops, state_now);
+      continue;
     }
 
 

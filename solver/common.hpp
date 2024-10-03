@@ -10,7 +10,7 @@
 #ifndef NDEBUG
   #define assert(expr) \
     (!!(expr) || \
-      (printf("-2 -2 -2 -2\n%s:%d: %s: Assertion `%s` failed.\n", __FILE__, __LINE__, __PRETTY_FUNCTION__, #expr), std::abort(), 0))
+      (std::cout << "-2 -2 -2 -2 " << __FILE__ << ":" << __LINE__ << ": " << __PRETTY_FUNCTION__ << ": Assertion`" << #expr << "` failed." << std::endl, std::abort(), 0))
 #else
   #define assert(expr)
 #endif
