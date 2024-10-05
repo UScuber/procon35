@@ -19,7 +19,7 @@ private:
 public:
 	SolverTask() {};
 	~SolverTask();
-	void initialize(const BitBoard& board_start, const BitBoard& board_goal, const int option_number);
+	void initialize(const BitBoard& board_start, const BitBoard& board_goal, const int option_number = 0);
 	size_t get_op_num(void) const;
 	Array<Array<int>> get_op(void);
 	ChildProcess& get_child(void);
@@ -37,6 +37,7 @@ void SolverTask::initialize(const BitBoard& board_start, const BitBoard& board_g
 
 	// プロセスに入力を与える
 	this->child.ostream() << board_start.height() << std::endl << board_start.width() << std::endl;
+	this->child.ostream() << option_number << std::endl;
 	for (int row = 0; row < board_start.height(); row++) {
 		String input = U"";
 		for (int col = 0; col < board_start.width(); col++) {
