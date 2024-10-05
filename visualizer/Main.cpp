@@ -60,10 +60,10 @@ public:
 	void draw(void) const override;
 };
 void SelectScene::update(void) {
-	if (SimpleGUI::ButtonAt(U"通信", Scene::CenterF() * 1.0)) {
+	if (SimpleGUI::ButtonAt(U"通信", Vec2{ Scene::CenterF().x * 0.85, Scene::Center().y})) {
 		changeScene(U"ConnectScene");
 	}
-	if (SimpleGUI::ButtonAt(U"自動", Scene::CenterF() * 1.1)) {
+	if (SimpleGUI::ButtonAt(U"自動", Vec2{ Scene::CenterF().x * 1.15, Scene::Center().y })) {
 		changeScene(U"AutoScene");
 	}
 }
@@ -81,7 +81,6 @@ void Main() {
 	manager.add<SelectScene>(U"SelectScene");
 	manager.add<ConnectScene>(U"ConnectScene");
 	manager.add<AutoScene>(U"AutoScene");
-
 
 	while (System::Update()) {
 		const ScopedRenderStates2D sampler{ SamplerState::ClampNearest };

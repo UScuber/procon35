@@ -55,7 +55,7 @@ bool Connect::get_problem(void) {
 
 bool Connect::post_answer(const JSON& json) {
 	const URL url = url_base + U"/answer?token=" + this->token;
-	const FilePath save_file_path = U"./answer.json";
+	const FilePath save_file_path = U"./post_answer_response.json";
 	const std::string data = json.formatUTF8();
 	if (const auto response = SimpleHTTP::Post(url, this->headers, data.data(), data.size(), save_file_path)) {
 		if (response.isOK()) {

@@ -13,10 +13,10 @@ public:
 	DataWriter(void);
 	void add_op(const int pattern_idx, const Point& pos, const Dir dir);
 	JSON get_json(void) const;
+	void initialize(void);
 };
 DataWriter::DataWriter(void) {
-	json[U"n"] = 0;
-	json[U"ops"] = Array<JSON>(0);
+	initialize();
 }
 void DataWriter::add_op(const int pattern_idx, const Point& pos, const Dir dir) {
 	JSON tmp;
@@ -29,6 +29,12 @@ void DataWriter::add_op(const int pattern_idx, const Point& pos, const Dir dir) 
 }
 JSON DataWriter::get_json(void) const {
 	return this->json;
+}
+void DataWriter::initialize(void) {
+	this->json.clear();
+	this->n = 0;
+	json[U"n"] = 0;
+	json[U"ops"] = Array<JSON>(0);
 }
 
 class DataLoader {

@@ -19,13 +19,13 @@ private:
 public:
 	SolverTask() {};
 	~SolverTask();
-	void initialize(const BitBoard& board_start, const BitBoard& board_goal);
+	void initialize(const BitBoard& board_start, const BitBoard& board_goal, const int option_number);
 	size_t get_op_num(void) const;
 	Array<Array<int>> get_op(void);
 	ChildProcess& get_child(void);
 };
 
-void SolverTask::initialize(const BitBoard& board_start, const BitBoard& board_goal) {
+void SolverTask::initialize(const BitBoard& board_start, const BitBoard& board_goal, const	int option_number) {
 	// wslのユーザ名読み込み
 	TextReader reader_wsl_path{ U"./wsl_path.env" };
 	if(not reader_wsl_path)  throw Error{ U"Failed to open 'wsl_path.env'" };
