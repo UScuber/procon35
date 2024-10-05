@@ -1219,8 +1219,8 @@ int main(){
 
 
   // 盤面入力
-  int h,w;
-  cin >> h >> w;
+  int h,w, mode;
+  cin >> h >> w >> mode;
   Board state_start(h, w);
   for(int i = 0; i < h; i++){
     string s; cin >> s;
