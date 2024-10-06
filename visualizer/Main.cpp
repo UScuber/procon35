@@ -2,6 +2,7 @@
 # include "Data.hpp"
 # include "Board.hpp"
 # include "Connect.hpp"
+# include "SushiGUI.hpp"
 
 class AutoScene : public App::Scene {
 private:
@@ -52,18 +53,20 @@ void ConnectScene::draw(void) const {
 }
 
 
-
 class SelectScene : public App::Scene {
 public:
 	SelectScene(const InitData& init) : IScene{ init } {}
 	void update(void) override;
 	void draw(void) const override;
+	const Font font{ 100, Typeface::Bold };
 };
 void SelectScene::update(void) {
-	if (SimpleGUI::ButtonAt(U"通信", Vec2{ Scene::CenterF().x * 0.85, Scene::Center().y})) {
+	Arg::rightCenter_<Vec2> anchor_connect = Vec2{ Scene::CenterF().x * 0.90, Scene::Center().y };
+	Arg::leftCenter_<Vec2> anchor_auto = Vec2{ Scene::CenterF().x * 1.1, Scene::Center().y };
+	if (SushiGUI::button4(font, U"通信", anchor_connect, Size{ 200, 100})) {
 		changeScene(U"ConnectScene");
 	}
-	if (SimpleGUI::ButtonAt(U"自動", Vec2{ Scene::CenterF().x * 1.15, Scene::Center().y })) {
+	if (SushiGUI::button4(font, U"自動", anchor_auto, Size{ 200, 100})) {
 		changeScene(U"AutoScene");
 	}
 }

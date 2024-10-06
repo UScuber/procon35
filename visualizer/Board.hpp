@@ -6,6 +6,7 @@
 # include "Data.hpp"
 # include "SolverTask.hpp"
 # include "Connect.hpp"
+# include "SushiGUI.hpp"
 
 #include <chrono>
 
@@ -189,6 +190,7 @@ private:
 	JSON best_answer;
 	BitBoard board_start{ 0,0 }, board_goal{ 0, 0 };
 	void initialize_board(void);
+	const Font font_button{ 40, Typeface::Bold };
 public:
 	BoardConnect() {}
 	void initialize(const BitBoard& board_goal, const bool is_network);
@@ -238,13 +240,21 @@ void BoardConnect::initialize_board(void) {
 
 void BoardConnect::update_gui(void) {
 	for (const int& option : solver_options) {
-		if (SimpleGUI::Button(Format(option), Vec2{ Scene::Size().x * 0.075 * (option % 4 + 1), Scene::Size().y * (0.85 + 0.075*(option/4)) }, unspecified, this->is_finished)) {
+		Arg::topRight_<Vec2> anchor = Vec2{
+			Scene::CenterF().x / 6.0 * (option%4 + 1),
+			Scene::Size().y * (0.825 + 0.075 * (option / 4))
+		};
+		if (SushiGUI::button4(this->font_button, Format(option), anchor, Size{ 50, 50 }, this->is_finished)) {
 			this->initialize_board();
 			this->is_finished = false;
 			this->solver_task.initialize(this->board_start, this->board_goal, option);
 		}
 	}
-	if (SimpleGUI::Button(U"送信", Vec2{ Scene::Size().x * 0.75, Scene::Size().y * 0.9 }, unspecified, this->is_finished and this->is_network)) {
+	Arg::leftCenter_<Vec2> anchor = Vec2{
+		Scene::Size().x * 0.75,
+		Scene::Size().y * 0.9
+	};
+	if (SushiGUI::button3(this->font_button, U"送信", anchor, Size(150, 75), this->is_network)) {
 		Connect connect;
 		this->is_success_post = connect.post_answer(this->datawriter.get_json());
 		this->datawriter.get_json().save(U"./answer.json");
@@ -279,7 +289,7 @@ void BoardConnect::draw(void) const {
 	draw_board();
 	draw_details();
 	if (this->is_finished and this->is_success_post) {
-		this->font( this->is_network ? U"post is successful!" : U"Done!").drawAt(Vec2{Scene::Center().x, Scene::Size().y * 13.0 / 15.0}, Palette::Black);
+		this->font( this->is_network ? U"post is successful!" : U"Done!").drawAt(35, Vec2{Scene::Center().x, Scene::Size().y * 13.0 / 15.0}, Palette::Black);
 	}
 }
 
