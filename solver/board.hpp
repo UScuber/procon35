@@ -276,58 +276,6 @@ void Board::down_slide(const Board& kata, const int posy, const int posx){
     }
   }
 }
-void Board::up_slide(const Board& kata, const int posy, const int posx){
-  const int kata_sy = std::max(0, -posy), kata_sx = std::max(0, -posx);
-  const int kata_ty = std::min(kata.height(), h-posy), kata_tx = std::min(kata.width(), w-posx);
-  const int board_y = std::max(0, posy) - kata_sy, board_x = std::max(0, posx) - kata_sx;
-
-  for(int j = kata_sx; j < kata_tx; j++){
-    auto& column = a[j+board_x];
-    std::vector<uchar> picked_pieces;
-    std::vector<int> picked_pos;
-
-    // pick
-    for(int i = kata_sy; i < kata_ty; i++){
-      if(kata[i][j]){
-        picked_pieces.push_back(column[i+board_y]);
-        picked_pos.push_back(i+board_y);
-      }
-    }
-    picked_pos.push_back(h);
-
-    // shift
-    for(int i = 0; i + 1 < (int)picked_pos.size(); i++){
-      if(picked_pos[i] + 1 != picked_pos[i+1]){
-        column.rotate(picked_pos[i]-i, picked_pos[i]+1, picked_pos[i+1]);
-      }
-    }
-  }
-}
-void Board::down_slide(const Board& kata, const int posy, const int posx){
-  const int kata_sy = std::max(0, -posy), kata_sx = std::max(0, -posx);
-  const int kata_ty = std::min(kata.height(), h-posy), kata_tx = std::min(kata.width(), w-posx);
-  const int board_y = std::max(0, posy) - kata_sy, board_x = std::max(0, posx) - kata_sx;
-
-  for(int j = kata_sx; j < kata_tx; j++){
-    auto& column = a[j+board_x];
-    std::vector<uchar> picked_pieces;
-    std::vector<int> picked_pos;
-
-    // pick
-    for(int i = kata_ty - 1; i >= kata_sy; i--){
-      if(kata[i][j]){
-        picked_pieces.push_back(column[i+board_y]);
-        picked_pos.push_back(i+board_y);
-      }
-    }
-    picked_pos.push_back(-1);
-
-    // shift
-    for(int i = 0; i + 1 < (int)picked_pos.size(); i++){
-      column.rotate(picked_pos[i+1]+1, picked_pos[i], picked_pos[i]+i+1);
-    }
-  }
-}
 
 void Board::left_slide_reverse(const Board& kata, const int posy, const int posx){
   const int kata_sy = std::max(0, -posy), kata_sx = std::max(0, -posx);
