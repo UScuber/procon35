@@ -250,9 +250,13 @@ void BoardConnect::update_gui(void) {
 	for (const int& option : solver_options) {
 		Arg::bottomRight_<Vec2> anchor = calc_button_pos(option);
 		if (SushiGUI::button4(this->font_button, Format(option), anchor, Size{ 50, 50 }, this->is_finished)) {
-			this->initialize_board();
-			this->option_now = option;
 			this->is_finished = false;
+			this->option_now = option;
+			Connect connect;
+			if (not connect.get_problem()) {
+				this->is_finished = true;
+			}
+			this->initialize(connect.get_problem_board_start(), connect.get_problem_board_goal(), this->is_network);
 			this->solver_task.initialize(this->board_start, this->board_goal, option);
 		}
 	}

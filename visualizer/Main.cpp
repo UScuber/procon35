@@ -3,6 +3,7 @@
 # include "Board.hpp"
 # include "Connect.hpp"
 # include "SushiGUI.hpp"
+# include "BitBoard.hpp"
 
 class AutoScene : public App::Scene {
 private:
@@ -32,16 +33,14 @@ class ConnectScene : public App::Scene {
 private:
 	BoardExample board_example;
 	BoardConnect board_connect;
-	Connect connect;
 public:
 	ConnectScene(const InitData& init);
 	void update(void) override;
 	void draw(void) const override;
 };
 ConnectScene::ConnectScene(const InitData& init) : IScene{ init } {
-	this->connect.get_problem();
-	this->board_example.initialize(this->connect.get_problem_board_goal(), false);
-	this->board_connect.initialize(this->connect.get_problem_board_start(), this->connect.get_problem_board_goal(), true);
+	this->board_example.initialize(BitBoard(0,0), false);
+	this->board_connect.initialize(BitBoard(0,0), true);
 }
 void ConnectScene::update(void) {
 	if (KeyP.down()) changeScene(U"SelectScene");
