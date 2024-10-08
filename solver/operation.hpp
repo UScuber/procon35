@@ -78,12 +78,12 @@ inline constexpr bool Operation::operator!=(const Operation& op) const{
 }
 
 void Operation::debug() const{
-  std::cerr << "idx: " << kata_idx() << ", y: " << y() << ", x: " << x() << ", dir: ";
+  cerr << "idx: " << kata_idx() << ", y: " << y() << ", x: " << x() << ", dir: ";
   char c = 'U';
   if(dir() == Dir::D) c = 'D';
   else if(dir() == Dir::L) c = 'L';
   else if(dir() == Dir::R) c = 'R';
-  std::cerr << c << std::endl;
+  cerr << c << std::endl;
 }
 
 std::istream& operator>>(std::istream& is, Operation& ops){

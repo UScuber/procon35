@@ -129,9 +129,9 @@ void Board::debug() const{
   for(int i = 0; i < height(); i++){
     const auto ref = (*this)[i];
     for(int j = 0; j < width(); j++){
-      std::cerr << (int)ref[j];
+      cerr << (int)ref[j];
     }
-    std::cerr << "\n";
+    cerr << "\n";
   }
 }
 
