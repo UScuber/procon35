@@ -6,6 +6,7 @@
 
 using namespace std;
 using std::cin;
+using std::cerr;
 
 
 #define KATA_MM 22 // 256x256
@@ -203,26 +204,6 @@ void z_algo(const uchar s[257*257], const int n, uchar z[257*257]){
 }
 
 
-// これに収まる最大サイズの型(type1)を返す
-int get_max_kata_id(int max_size){
-  int kata_id = 0; // max_size 以下最大の抜き型
-  if(max_size > 1){
-    kata_id = 1;
-    max_size /= 2;
-    while(max_size > 1){
-      kata_id += 3;
-      max_size /= 2;
-    }
-  }
-  return kata_id;
-}
-int get_max_kata_size(int max_size){
-  int res = 1;
-  while(res*2 <= max_size) res *= 2;
-  return res;
-}
-
-
 void solve_last_row(Operations& ops, Board& state_now, const Board& state_goal){
   const int h = state_now.height(), w = state_now.width();
 
@@ -416,43 +397,6 @@ int find_max_len(const int row, const int st_j, const Board& state_now, const Bo
     }
   }
   return max_len;
-}
-
-// st_j以降で真上にあるピースで最大長を探す(高さによる制限も考慮)
-pair<int, Operation> find_above_max_len(const int row, const int st_j, const Board& state_now, const Board& state_goal){
-  const int h = state_now.height(), w = state_now.width();
-
-  if(st_j >= w) return {0, 0};
-
-  int max_len = 0;
-  Operation best_op(1U << 31);
-
-  for(int i = row; i < h-1; i++){
-    const int max_kata_size = get_max_kata_size(i - row + 1);
-    int last = st_j, dup_num = 0;
-    for(int j = st_j; j < w; j++){
-      if(state_now[i][j] != state_goal[h-row-1][j]){
-        const int len = min(j - last, max_kata_size);
-        if(max_len < len - dup_num){
-          max_len = len - dup_num;
-          best_op = Operation(get_max_kata_id(len), i-get_max_kata_size(len)+1, last, Dir::U);
-        }
-        last = j + 1;
-        dup_num = 0;
-      }else{
-        if(state_now[h-1][j] == state_goal[h-row-1][j]) dup_num++;
-      }
-    }
-    const int len = min(w - last, max_kata_size);
-    if(max_len < len - dup_num){
-      max_len = len - dup_num;
-      best_op = Operation(get_max_kata_id(len), i-get_max_kata_size(len)+1, last, Dir::U);
-    }
-  }
-
-  // assert(max_len >= 1);
-
-  return {max_len, best_op};
 }
 
 // 左右寄せの操作のうち、最もピースが長くつながるような操作を求める
@@ -825,26 +769,18 @@ double evaluate_board(const int row, const Board& state_now, const Board& state_
 }
 
 
-// limit以上の長さのピースがあれば即採用する(とにかく1手で入れる)
-void solve_row_above(Operations& ops, const int row, Board& state_now, const Board& state_goal, const int limit){
-  const int h = state_now.height(), w = state_now.width();
-
-  while(true){
-    int st_j = 0;
-    while(st_j < w && state_now[h-1][st_j] == state_goal[h-row-1][st_j]) st_j++;
-    
-    if(st_j >= w) return;
-
-    int max_len;
-    Operation best_op;
-    tie(max_len, best_op) = find_above_max_len(row, st_j, state_now, state_goal);
-
-    if(max_len < limit) return;
-    
-    slide_and_output(best_op, ops, state_now);
-    cerr << "solve above: " << "row: " << row << ", maxlen: " << max_len << "\n";
-    best_op.debug();
+// これに収まる最大サイズの型(type1)を返す
+int get_max_kata_id(int max_size){
+  int kata_id = 0; // max_size 以下最大の抜き型
+  if(max_size > 1){
+    kata_id = 1;
+    max_size /= 2;
+    while(max_size > 1){
+      kata_id += 3;
+      max_size /= 2;
+    }
   }
+  return kata_id;
 }
 
 
@@ -853,12 +789,9 @@ void solve_row_clearly(Operations& ops, const int row, Board& state_now, const B
   const int h = state_now.height(), w = state_now.width();
 
   while(true){
-    // if(row >= h/2) solve_row_above(ops, row, state_now, state_goal, 8);
-    check_unique_piece_move(ops, row, state_now, state_goal);
-
     int st_j = 0;
     while(st_j < w && state_now[h-1][st_j] == state_goal[h-row-1][st_j]) st_j++;
-
+    
     if(st_j == w) return;
     
     uchar s[257*257], z[257*257];
@@ -875,7 +808,7 @@ void solve_row_clearly(Operations& ops, const int row, Board& state_now, const B
     }
 
     z_algo(s, (h-1-row)*(w+1) + ulen+1, z);
-
+    
 
     const int max_select_num = 100;
     vector<pair<int,Operation>> candidates;
@@ -894,11 +827,11 @@ void solve_row_clearly(Operations& ops, const int row, Board& state_now, const B
         int step = 1 + (j != st_j); // かかる手数
         step = 1;
         const int len = min((int)z[(i-row)*(w+1) + ulen+1 + j], u_kata_size); // 長さ
-        if(row == 56 && st_j == 17 && len) cerr << "(" << i << "," << j << "," << len << ") ";
         if(len / step >= limit || true){ // 十分大きなピース群を発見
           if(abs(j - st_j) > lr_kata_size && (!((h-1 - i) & 1) || j == st_j)){
             continue;
           }
+          // if(len / step > max_len) max_len = len / step;
           if(len*2 + (j == st_j) > max_len) max_len = len*2 + (j == st_j);
           if(len >= 1){
             candidates.push_back({len*2 + (j == st_j), Operation(0, i, j, Dir::U)});
@@ -911,9 +844,9 @@ void solve_row_clearly(Operations& ops, const int row, Board& state_now, const B
       return a.first > b.first;
     });
 
-    const auto above_maxlen_info = find_above_max_len(row, st_j, state_now, state_goal);
-    cerr << "maxlen: " << max_len/2 << ", limit: " << limit << ", st_j: " << st_j << ", row: " << row << ", ";
-    cerr << "above maxlen: " << above_maxlen_info.first << " (" << above_maxlen_info.second.x() << ")" << "\n";
+
+    cerr << "maxlen: " << max_len/2 << ", limit: " << limit << ", st_j: " << st_j << "\n";
+
     // 2手以内で揃えられるピース群がない
     if(max_len/2 <= 0){
       // type2の抜き型で未完成部分の行の偶奇を変える
@@ -995,21 +928,11 @@ void solve_row_clearly(Operations& ops, const int row, Board& state_now, const B
 
         // slide_and_output({u_kata_id, i + 1 - u_kata_size, st_j, Dir::U}, ops, state_now);
       }
-      int kata = u_kata_id;
-      // if(len < u_kata_size) for(; kata-3 >= 1; kata -= 3){
-      //   if(len > (int)cutting_dies[kata].height()){
-      //     kata = min(u_kata_id, kata + 3);
-      //     break;
-      //   }
-      // }
-      // op.push_back({u_kata_id, i + 1 - u_kata_size, st_j, Dir::U});
-      op.push_back({kata, i + 1 - (int)cutting_dies[kata].height(), st_j, Dir::U});
+      op.push_back({u_kata_id, i + 1 - u_kata_size, st_j, Dir::U});
       tmp_state.slide(op.back());
 
-      int nxt_j = st_j + len;
-      while(nxt_j < w && tmp_state[h-1][nxt_j] == state_goal[h-row-1][nxt_j]) nxt_j++;
-      const int next_maxlen = find_max_len(row, nxt_j, tmp_state, state_goal);
-      const int score = (next_maxlen + nxt_j - st_j) * 1000 / (1 + (j != st_j) + 2);
+      const int next_maxlen = find_max_len(row, st_j + len, tmp_state, state_goal);
+      const int score = (len + next_maxlen) * 1000 / (1 + (j != st_j) + 2);
       if(best_score < score){
         best_score = score;
         best_len = len;
@@ -1144,20 +1067,6 @@ void solve_row_effi_roughly(Operations& ops, const int row, Board& state_now, co
     if(best == Operation(1U << 31)){
       prev_maxlen = 1;
       cerr << "search all\n";
-      
-      cerr << "\n";
-      cerr << "row: " << row << "\n";
-      cerr << "current\n";
-      // state_now.debug();
-      for(int i = row; i < h; i++){
-        for(int j = 0; j < w; j++) cerr << (int)state_now[i][j];
-        cerr << "\n";
-      }
-      cerr << "\n";
-      cerr << "goal row\n";
-      for(int j = 0; j < w; j++) cerr << (int)state_goal[h-row-1][j];
-      cerr << "\n";
-
       Operation best_op[256*2+1];
       int best_scores[256*2+1];
       fill(best_scores, best_scores + 256*2+1, 1000000000);
@@ -1328,7 +1237,7 @@ int main(){
   }
 
   // 手順を計算
-  const auto ops = solve(state_start, state_goal);
+  auto ops = solve(state_start, state_goal);
 
   Board state_now = state_start;
   for(const Operation op : ops){
@@ -1344,7 +1253,6 @@ int main(){
 
   // 操作終了
   cout << "-1 -1 -1 -1" << endl;
-  cerr << (double)ops.size() / h / w << "\n";
 
   return 0;
 }
