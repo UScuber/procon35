@@ -918,7 +918,7 @@ void solve_row_clearly(Operations& ops, const int row, Board& state_now, const B
     if(max_len/2 <= 0){
       // type2の抜き型で未完成部分の行の偶奇を変える
       slide_and_output({23, row + ((h-1 - row) & 1), 0, Dir::U}, ops, state_now);
-      return;
+      continue;
     }
 
     const auto best_connection = search_best_connection(row, state_now, state_goal);
