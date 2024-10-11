@@ -36,6 +36,6 @@ def convert(input_image: np.ndarray, H: int, W: int):
   a[0, 0] = 0
   result = cv2.merge((r, g, b, a))
 
-  board = label.flatten().reshape((W, H))
+  board = label.flatten().reshape((H, W))
 
   return (result, center, board, check_is_valid_board(board, H, W))

@@ -29,7 +29,7 @@ def write_data(center: np.ndarray, board: np.ndarray, H: int, W: int, outputfile
     d = {}
     d["pieceColors"] = []
     for i in range(convert.K):
-      d["pieceColors"].append(f"({center[i][0]}, {center[i][1]}, {center[i][2]}, 255)")
+      d["pieceColors"].append(f"({center[i][2]}, {center[i][1]}, {center[i][0]}, 255)")
     f.write(json.dumps(d, indent=2))
 
 
