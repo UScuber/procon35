@@ -69,3 +69,5 @@ g++ shift.cpp -O2 -o solver -fopenmp -lgomp
 ```
 
 - 作成した実行プログラム(solver)への絶対パスをvisualizer内の`wsl_path.env`に書き込んでください
+
+- コンパイル時に`-NDEBUG`オプションを付けると、`assert`のチェックと`cerr`による標準エラー出力が無効化されます

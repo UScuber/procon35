@@ -185,7 +185,7 @@ inline int calc_dp(const int row, int st_j, const Board& state_now, const Board&
 
 
 // z[i]=256となる場合、overflowします
-void z_algo(const uchar s[257*257], const int n, uchar z[257*257]){
+void z_algo(const uchar *s, const int n, uchar *z){
   z[0] = n < 256 ? n : 255;
   int i = 1, j = 0;
   while(i < n){
@@ -1024,89 +1024,6 @@ void solve_row_clearly(Operations& ops, const int row, Board& state_now, const B
       moved = true;
     }
 
-
-    // max_lenのものを動かす
-    // for(int i = row; i < h-1; i++){
-    //   int lr_max_size = h - 1 - row; // 左右移動できる最大の幅
-    //   int lr_kata_id = 0; // lr_max_size 以下最大の抜き型
-    //   if(lr_max_size > 1){
-    //     lr_kata_id = 1;
-    //     lr_max_size /= 2;
-    //     while(lr_max_size > 1){
-    //       lr_kata_id += 3;
-    //       lr_max_size /= 2;
-    //     }
-    //   }
-    //   int lr_kata_size = cutting_dies[lr_kata_id].height();
-
-    //   int u_max_size = i - row + 1; // 上下移動できる最大の幅
-    //   int u_kata_id = 0; // u_max_size 以下最大の抜き型
-    //   if(u_max_size > 1){
-    //     u_kata_id = 1;
-    //     u_max_size /= 2;
-    //     while(u_max_size > 1){
-    //       u_kata_id += 3;
-    //       u_max_size /= 2;
-    //     }
-    //   }
-    //   const int u_kata_size = cutting_dies[u_kata_id].height();
-
-    //   for(int j = 0; j < w; j++){
-    //     int step = 1 + (j != st_j); // かかる手数
-    //     step = 1;
-    //     int len = min((int)z[(i-row)*(w+1) + ulen+1 + j], u_kata_size); // 長さ
-    //     // if(len / step > limit){ // 十分大きなピース群を発見
-    //     // if(len / step >= max_len){
-    //     if(len*2 + (j == st_j) >= max_len){
-    //       const int nuki_row = (i + lr_kata_size <= h - 1 ? i : h-1 - lr_kata_size); // 左右の抜き型を使う行
-    //       if(abs(j - st_j) > lr_kata_size && (!((h-1 - i) & 1) || j == st_j)){
-    //         continue;
-    //       }
-    //       // type2の抜き型を使ってst_jに持ってく
-    //       if(abs(j - st_j) > lr_kata_size){
-    //         if(j < st_j){
-    //           slide_and_output({23, i, w - abs(st_j - j), Dir::R}, ops, state_now);
-    //         }else if(st_j < j){
-    //           slide_and_output({23, i, -256 + abs(st_j - j), Dir::L}, ops, state_now);
-    //         }
-    //       }else{
-    //         if(j < st_j){
-    //           // 右から st_j - j 行を左へもっていく
-    //           slide_and_output({lr_kata_id, nuki_row, w - abs(st_j - j), Dir::R}, ops, state_now);
-    //         }else if(st_j < j){
-    //           // 左から j - st_j 行を右へもっていく
-    //           slide_and_output({lr_kata_id, nuki_row, abs(st_j - j) - lr_kata_size, Dir::L}, ops, state_now);
-    //         }
-    //         if(max_len/2 == 6 && limit == 1 && st_j == 10){
-    //           cerr << "\n";
-    //           state_now.debug();
-    //           cerr << "\n";
-    //         }
-
-    //         Operation best_op(1U << 31);
-    //         int next_maxlen = -1;
-    //         for(int kata = u_kata_id; kata >= 0; kata -= 3){
-    //           const int size = cutting_dies[kata].height();
-    //           if(max_len/2 > size) break;
-    //           Board tmp_state = state_now;
-    //           tmp_state.slide({kata, i+1-size, st_j, Dir::U});
-    //           const int next_len = find_max_len(row, st_j + max_len/2, tmp_state, state_goal);
-    //           if(next_maxlen < next_len){
-    //             next_maxlen = next_len;
-    //             best_op = Operation(kata, i+1-size, st_j, Dir::U);
-    //           }
-    //         }
-    //         assert(best_op != Operation(1U << 31));
-    //         slide_and_output(best_op, ops, state_now);
-    //         // slide_and_output({u_kata_id, i + 1 - u_kata_size, st_j, Dir::U}, ops, state_now);
-    //       }
-    //       moved = true;
-    //       cerr << max_len/2 << " clearly(" << ops.size() << ")\n";
-    //       break;
-    //     }
-    //   }
-    //   if(moved) break;
-    // }
     if(!moved) return; // 動かせなかったとき
   }
 }
@@ -1230,54 +1147,58 @@ void solve_row_effi_roughly(Operations& ops, const int row, Board& state_now, co
 
 
 
-void solve_row(vector<Operation>& ops, int row, Board& state_now, const Board& state_goal){
+void solve_row(Operations& ops, int row, Board& state_now, const Board& state_goal){
   const int h = state_now.height(), w = state_now.width();
-  vector<bool> used(w);
+
   if(row == h - 1){
     solve_last_row(ops, state_now, state_goal);
     return;
   }
 
   solve_row_effi_roughly(ops, row, state_now, state_goal);
-  return;
 
-  int cnt = 0;
-  while(cnt < w){
-    for(int i = 0; i + 1 < w;i++){
-      if(used[i] || used[i + 1])continue;
-      if(solve_pos_a2(ops, row, i, state_now, state_goal)){
-        used[i] = used[i + 1] = true;
-        cnt += 2;
-      }
-    }
-    for(int i = 0; i < w;i++){
-      if(used[i])continue;
-      if(solve_pos_a(ops, row, i, state_now, state_goal)){
-        used[i] = true;
-        cnt++;
-      }
-    }
-    // 下側を回転させたかどうか
-    bool isrot = false;
-    for(int i = 0; i < w;i++){
-      if(used[i])continue;
-      if(solve_pos_b(ops, row, i, state_now, state_goal)){
-        used[i] = true;
-        isrot = true;
-        cnt++;
-        break;
-      }
-    }
-    if(isrot)continue;
-    for(int i = 0; i < w;i++){
-      if(used[i])continue;
-      if(solve_pos_c(ops, row, i, state_now, state_goal, used)){
-        used[i] = true;
-        cnt++;
-      }
-    }
-  }
+  // return;
+
+  // vector<bool> used(w);
+
+  // int cnt = 0;
+  // while(cnt < w){
+  //   for(int i = 0; i + 1 < w;i++){
+  //     if(used[i] || used[i + 1]) continue;
+  //     if(solve_pos_a2(ops, row, i, state_now, state_goal)){
+  //       used[i] = used[i + 1] = true;
+  //       cnt += 2;
+  //     }
+  //   }
+  //   for(int i = 0; i < w;i++){
+  //     if(used[i]) continue;
+  //     if(solve_pos_a(ops, row, i, state_now, state_goal)){
+  //       used[i] = true;
+  //       cnt++;
+  //     }
+  //   }
+  //   // 下側を回転させたかどうか
+  //   bool isrot = false;
+  //   for(int i = 0; i < w;i++){
+  //     if(used[i]) continue;
+  //     if(solve_pos_b(ops, row, i, state_now, state_goal)){
+  //       used[i] = true;
+  //       isrot = true;
+  //       cnt++;
+  //       break;
+  //     }
+  //   }
+  //   if(isrot) continue;
+  //   for(int i = 0; i < w;i++){
+  //     if(used[i]) continue;
+  //     if(solve_pos_c(ops, row, i, state_now, state_goal, used)){
+  //       used[i] = true;
+  //       cnt++;
+  //     }
+  //   }
+  // }
 }
+
 Operations solve(const Board& state_start, const Board& state_goal){
   const int h = state_start.height();
   // 操作 (p, x, y, s)

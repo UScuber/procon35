@@ -103,7 +103,7 @@ void Board::slide(const Board& kata, const int posy, const int posx, const Dir d
   if(dir == Dir::R) right_slide(kata, posy, posx);
 }
 
-void Board::slide(const Operation &op){
+void Board::slide(const Operation& op){
   slide(cutting_dies[op.kata_idx()], op.y(), op.x(), op.dir());
 }
 
@@ -114,7 +114,7 @@ void Board::slide_reverse(const Board& kata, const int posy, const int posx, con
   if(dir == Dir::R) right_slide_reverse(kata, posy, posx);
 }
 
-void Board::slide_reverse(const Operation &op){
+void Board::slide_reverse(const Operation& op){
   slide_reverse(cutting_dies[op.kata_idx()], op.y(), op.x(), op.dir());
 }
 
