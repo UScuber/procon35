@@ -13,19 +13,107 @@ using std::cin;
 #define KATA_12 2 // 1x2 (縦 1, 横 2)
 
 
+// 00 <=> 00
+// 01 <=> 11
+// 10 <=> 10
+// 11 <=> 01
+
+/*
+  回転は反時計回り（入力時と出力時では逆の変換をする）
+  mode : 0 ->   0度回転
+  mode : 1 ->  90度回転
+  mode : 2 -> 180度回転
+  mode : 3 -> 270度回転
+  mode : 4 -> 左右反転 +   0度回転
+  mode : 5 -> 左右反転 +  90度回転
+  mode : 6 -> 左右反転 + 180度回転
+  mode : 7 -> 左右反転 + 270度回転
+*/
+int conversion_mode;
+
+// 座標の変換
+// y, x, h, w
+tuple<int, int, int, int> conversion_coordinate(tuple<int, int, int, int> coord, int mode){
+  auto [y, x, h, w] = coord;
+  if(mode >= 4){ // 左右反転する
+    x = w - 1 - x;
+  }
+  int ny, nx, nh, nw;
+  if(mode % 4 == 0) ny =         y, nx =         x, nh = h, nw = w;
+  if(mode % 4 == 1) ny = w - 1 - x, nx =         y, nh = w, nw = h;
+  if(mode % 4 == 2) ny = h - 1 - y, nx = w - 1 - x, nh = h, nw = w;
+  if(mode % 4 == 3) ny =         x, nx = h - 1 - y, nh = w, nw = h;
+  return {ny, nx, nh, nw}; 
+}
+// 反時計回りに90度回転
+Dir rotate_dir(Dir d){
+  if(d == Dir::U) return Dir::L;
+  if(d == Dir::D) return Dir::R;
+  if(d == Dir::L) return Dir::D;
+  return Dir::U;
+}
+// 反転
+Dir reverse_dir(Dir d){
+  if(d == Dir::U) return Dir::U;
+  if(d == Dir::D) return Dir::D;
+  if(d == Dir::L) return Dir::R;
+  return Dir::L;
+}
+// 反時計回りに90度回転
+// h, w, y, x, kata_id, dir
+tuple<int, int, int, int, int, Dir> rotate_op(tuple<int, int, int, int, int, Dir> op){
+  auto [h, w, y, x, kata_id, d] = op;
+  int kata_type = (kata_id == 0 ? 0 : (kata_id - 1) % 3);
+  int kata_size = cutting_dies[kata_id].height();
+  Dir new_dir = rotate_dir(d);
+  if(kata_type == 0){
+    return {w, h, w - x - kata_size    , y, kata_id    , new_dir};
+  }else if(kata_type == 1){
+    return {w, h, w - x - kata_size    , y, kata_id + 1, new_dir};
+  }else{
+    return {w, h, w - x - kata_size + 1, y, kata_id - 1, new_dir};
+  }
+}
+// 左右反転
+tuple<int, int, int, int, int, Dir> reverse_op(tuple<int, int, int, int, int, Dir> op){
+  auto [h, w, y, x, kata_id, d] = op;
+  int kata_type = (kata_id == 0 ? 0 : (kata_id - 1) % 3);
+  int kata_size = cutting_dies[kata_id].height();
+  Dir new_dir = reverse_dir(d);
+  if(kata_type == 0){
+    return {h, w, y, w - x - kata_size    , kata_id, new_dir};
+  }else if(kata_type == 1){
+    return {h, w, y, w - x - kata_size    , kata_id, new_dir};
+  }else{
+    return {h, w, y, w - x - kata_size + 1, kata_id, new_dir};
+  }
+}
+
+// 操作の変換
+Operation conversion_op(int h, int w, Operation op, int mode){
+  int y = op.y(), x = op.x(), kata_id = op.kata_idx();
+  Dir d = op.dir();
+  auto tmp = make_tuple(h, w, y, x, kata_id, d);
+  if(mode >= 4)tmp = reverse_op(tmp);
+  for(int i = 0;i < mode % 4;i++)tmp = rotate_op(tmp);
+  auto [nh, nw, ny, nx, nkata_id, nd] = tmp;
+  return {nkata_id, ny, nx, nd};
+}
 
 // スライドと更新を一度にする
 void slide_and_output(const Operation& op, Operations& ops, Board& state_now){
+  int reverse_mode = (conversion_mode >= 4 ? conversion_mode : conversion_mode ^ (conversion_mode & 1) << 1);
+  Operation new_op = conversion_op(state_now.height(), state_now.width(), op, reverse_mode);
   ops.push_back(op);
   state_now.slide(op);
-  cout << op << endl;
+  cout << new_op << endl;
 }
 
 
 // 同じ列から探索
 bool solve_pos_a(vector<Operation>& ops, int row, int col, Board& state_now, const Board& state_goal){
   const int h = state_now.height();
-  int need_val = state_goal[h - 1 - row][col];
+  int need_val = state_goal[h - 1 - row][col]; 
   for(int i = row; i < h; i++){
     if(state_now[i][col] != need_val) continue;
     // (i, col) を1x1の抜き型で下寄せ
@@ -1231,20 +1319,27 @@ int main(){
 
 
   // 盤面入力
-  int h,w, mode;
-  cin >> h >> w >> mode;
+  int bh,bw;
+  cin >> bh >> bw >> conversion_mode;
+  int h, w;
+  {
+    auto [ny, nx, nh, nw] = conversion_coordinate({0, 0, bh, bw}, conversion_mode);
+    h = nh, w = nw;
+  }
   Board state_start(h, w);
-  for(int i = 0; i < h; i++){
+  for(int i = 0; i < bh; i++){
     string s; cin >> s;
-    for(int j = 0; j < w; j++){
-      state_start[i][j] = s[j] - '0';
+    for(int j = 0; j < bw; j++){
+      auto [ny, nx, nh, nw] = conversion_coordinate({i, j, bh, bw}, conversion_mode);
+      state_start[ny][nx] = s[j] - '0';
     }
   }
   Board state_goal(h, w);
-  for(int i = 0; i < h; i++){
+  for(int i = 0; i < bh; i++){
     string s; cin >> s;
-    for(int j = 0; j < w; j++){
-      state_goal[i][j] = s[j] - '0';
+    for(int j = 0; j < bw; j++){
+      auto [ny, nx, nh, nw] = conversion_coordinate({i, j, bh, bw}, conversion_mode);
+      state_goal[ny][nx] = s[j] - '0';
     }
   }
 
