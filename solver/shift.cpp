@@ -936,6 +936,7 @@ void solve_row_clearly(Operations& ops, const int row, Board& state_now, const B
       int move_type = -1;
       int len = -1;
       int con_len = -1; // 実際にst_jから繋がっている量
+      int u_kata_size = -1;
       Operation pos; // 位置と左右寄せに使う型idだけ保持
     };
     vector<CandInfo> candidates;
@@ -958,16 +959,16 @@ void solve_row_clearly(Operations& ops, const int row, Board& state_now, const B
 
         if(j == st_j){
           // そのまま落とせる
-          candidates.push_back({0, len_std, con_len, Operation(0, i, j, Dir::U)});
+          candidates.push_back({0, len_std, con_len, u_kata_size, Operation(0, i, j, Dir::U)});
         }else if(abs(j - st_j) <= lr_kata_size){
           // lr_kata_sizeで余白を寄せられる
-          candidates.push_back({1, len_std, con_len, Operation(lr_kata_id, i, j, Dir::U)});
+          candidates.push_back({1, len_std, con_len, u_kata_size, Operation(lr_kata_id, i, j, Dir::U)});
         }else if((h-1 - i) & 1){
           // 23を使う
-          candidates.push_back({2, len_std, con_len, Operation(23, i, j, Dir::U)});
-        }else if(len_std + min(st_j, w-st_j-1) <= lr_kata_size){
+          candidates.push_back({2, len_std, con_len, u_kata_size, Operation(23, i, j, Dir::U)});
+        }else if((len_std + st_j <= lr_kata_size && st_j < j) || (w-st_j <= lr_kata_size && j < st_j)){
           // lenもまとめて移動できる
-          candidates.push_back({3, len_std, con_len, Operation(lr_kata_id, i, j, Dir::U)});
+          candidates.push_back({3, len_std, con_len, u_kata_size, Operation(lr_kata_id, i, j, Dir::U)});
         }else{
           continue;
         }
@@ -977,7 +978,11 @@ void solve_row_clearly(Operations& ops, const int row, Board& state_now, const B
     }
 
     sort(candidates.begin(), candidates.end(), [](const CandInfo &a, const CandInfo &b){
-      return a.len * (1 + !!b.move_type) > b.len * (1 + !!a.move_type);
+      // return a.len * (1 + !!b.move_type) > b.len * (1 + !!a.move_type);
+      // 最終的にそろった時の量を評価
+      const int anum = (a.con_len + a.u_kata_size-1) / a.u_kata_size + !!a.move_type;
+      const int bnum = (b.con_len + b.u_kata_size-1) / b.u_kata_size + !!b.move_type;
+      return a.con_len * bnum > b.con_len * anum;
     });
 
     const auto above_maxlen_info = find_above_max_len(row, st_j, state_now, state_goal);
@@ -1018,26 +1023,12 @@ void solve_row_clearly(Operations& ops, const int row, Board& state_now, const B
       Operations op;
       Board tmp_state = state_now;
 
-      // int step = 1 + (j != st_j); // かかる手数
-      // step = 1;
       const int len = min((int)z[(i-row)*(w+1) + ulen+1 + j], u_kata_size); // 長さ
 
       const int nuki_row = (i + lr_kata_size <= h - 1 ? i : h-1 - lr_kata_size); // 左右の抜き型を使う行
-      if(abs(j - st_j) > lr_kata_size && (!((h-1 - i) & 1) || j == st_j)){
-        assert(false);
-        continue;
-      }
 
-      // type2の抜き型を使ってst_jに持ってく
-      if(abs(j - st_j) > lr_kata_size){
-        if(j < st_j){
-          op.push_back({23, i, w - abs(st_j - j), Dir::R});
-          tmp_state.slide(op.back());
-        }else if(st_j < j){
-          op.push_back({23, i, -256 + abs(st_j - j), Dir::L});
-          tmp_state.slide(op.back());
-        }
-      }else{
+      // lr_kata_sizeで余白を寄せる
+      if(candidates[p].move_type == 1){
         if(j < st_j){
           // 右から st_j - j 行を左へもっていく
           op.push_back({lr_kata_id, nuki_row, w - abs(st_j - j), Dir::R});
@@ -1065,6 +1056,26 @@ void solve_row_clearly(Operations& ops, const int row, Board& state_now, const B
         // slide_and_output(best_op, ops, state_now);
 
         // slide_and_output({u_kata_id, i + 1 - u_kata_size, st_j, Dir::U}, ops, state_now);
+      }
+      // type2の抜き型を使ってst_jに持ってく
+      else if(candidates[p].move_type == 2){
+        if(j < st_j){
+          op.push_back({23, i, w - abs(st_j - j), Dir::R});
+          tmp_state.slide(op.back());
+        }else if(st_j < j){
+          op.push_back({23, i, -256 + abs(st_j - j), Dir::L});
+          tmp_state.slide(op.back());
+        }
+      }
+      // lenもまとめて移動する
+      else if(candidates[p].move_type == 3){
+        if(len + st_j <= lr_kata_size && st_j < j){
+          op.push_back({lr_kata_id, nuki_row, j - st_j, Dir::R});
+          tmp_state.slide(op.back());
+        }else{
+          op.push_back({lr_kata_id, nuki_row, j + w-st_j - lr_kata_size, Dir::L});
+          tmp_state.slide(op.back());
+        }
       }
       int kata = u_kata_id;
       // if(len < u_kata_size) for(; kata-3 >= 1; kata -= 3){
