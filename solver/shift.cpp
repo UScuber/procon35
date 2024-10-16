@@ -586,21 +586,7 @@ pair<Operation, int> search_best_connection(const int row, const Board& state_no
       s[(i-row)*(w+1) + ulen+1 + w] = 4; // split
     }
     z_algo(s.data(), (h-1-row)*(w+1) + ulen+1, Zr.data());
-    // cerr << st_j << "\n";
-    // for(int j = 0; j < ulen+1; j++) cerr << min((int)Zr[j], 9);
-    // cerr << "\n";
-    // for(int i = row; i < h-1; i++){
-    //   for(int j = 0; j <= w; j++) cerr << min((int)Zr[(i-row)*(w+1) + j + ulen+1], 9);
-    //   cerr << "\n";
-    // }
-    // cerr << "\n";
-    // for(int j = 0; j < ulen+1; j++) cerr << min((int)s[j], 9);
-    // cerr << "\n";
-    // for(int i = row; i < h-1; i++){
-    //   for(int j = 0; j <= w; j++) cerr << min((int)s[(i-row)*(w+1) + j + ulen+1], 9);
-    //   cerr << "\n";
-    // }
-    // cerr << "\n";
+
     // 右下のピースの値の部分を取り除く
     for(int i = 0; i < (h-1-row)*(w+1); i++) Zr[i] = Zr[i + ulen+1];
 
@@ -759,29 +745,7 @@ pair<Operation, int> search_best_connection(const int row, const Board& state_no
     }
   }
   
-  static int count = 0;
   cerr << "len: " << best_len << "\n";
-  // // count++;
-  // if(best_len >= 17){
-  //   best_op.debug();
-  //   cerr << "\n";
-  //   cerr << "row: " << row << ", stj: " << st_j << "\n";
-  //   // state_now.debug();
-  //   // cerr << "\n";
-  //   for(int j = 0; j < best_op.x(); j++) cerr << (int)state_now[best_op.y()][j];
-  //   cerr << "|";
-  //   for(int j = best_op.x(); j < w; j++) cerr << (int)state_now[best_op.y()][j];
-  //   cerr << "\n";
-  //   cerr << "\n";
-  //   for(int j = 0; j < st_j; j++) cerr << (int)state_goal[h-row-1][j];
-  //   cerr << "|";
-  //   for(int j = st_j; j < w; j++) cerr << (int)state_goal[h-row-1][j];
-  //   cerr << "\n";
-  //   cerr << "\n";
-  //   for(int j = 0; j < w; j++) cerr << (int)Zr[(best_op.y()-row)*(w+1) + j];
-  //   cerr << "\n";
-  //   // if(count >= 3) exit(0);
-  // }
 
   return { best_op, best_len };
 }
@@ -966,7 +930,15 @@ void solve_row_clearly(Operations& ops, const int row, Board& state_now, const B
 
 
     const int max_select_num = 100;
-    vector<pair<int,Operation>> candidates;
+
+    // 真下に落とせるものの情報
+    struct CandInfo {
+      int move_type = -1;
+      int len = -1;
+      int con_len = -1; // 実際にst_jから繋がっている量
+      Operation pos; // 位置と左右寄せに使う型idだけ保持
+    };
+    vector<CandInfo> candidates;
 
     bool moved = false;
     // 今ある中で一番長いものを探す
@@ -979,24 +951,33 @@ void solve_row_clearly(Operations& ops, const int row, Board& state_now, const B
       const int u_kata_size = cutting_dies[u_kata_id].height();
 
       for(int j = 0; j < w; j++){
-        int step = 1 + (j != st_j); // かかる手数
-        step = 1;
-        const int len = min((int)z[(i-row)*(w+1) + ulen+1 + j], u_kata_size); // 長さ
-        if(row == 56 && st_j == 17 && len) cerr << "(" << i << "," << j << "," << len << ") ";
-        if(len / step >= limit || true){ // 十分大きなピース群を発見
-          if(abs(j - st_j) > lr_kata_size && (!((h-1 - i) & 1) || j == st_j)){
-            continue;
-          }
-          if(len*2 + (j == st_j) > max_len) max_len = len*2 + (j == st_j);
-          if(len >= 1){
-            candidates.push_back({len*2 + (j == st_j), Operation(0, i, j, Dir::U)});
-          }
+        const int con_len = z[(i-row)*(w+1) + ulen+1 + j]; // 連続して繋がってる長さ
+        const int len_std = min(con_len, u_kata_size); // 長さ
+
+        if(con_len <= 0) continue;
+
+        if(j == st_j){
+          // そのまま落とせる
+          candidates.push_back({0, len_std, con_len, Operation(0, i, j, Dir::U)});
+        }else if(abs(j - st_j) <= lr_kata_size){
+          // lr_kata_sizeで余白を寄せられる
+          candidates.push_back({1, len_std, con_len, Operation(lr_kata_id, i, j, Dir::U)});
+        }else if((h-1 - i) & 1){
+          // 23を使う
+          candidates.push_back({2, len_std, con_len, Operation(23, i, j, Dir::U)});
+        }else if(len_std + min(st_j, w-st_j-1) <= lr_kata_size){
+          // lenもまとめて移動できる
+          candidates.push_back({3, len_std, con_len, Operation(lr_kata_id, i, j, Dir::U)});
+        }else{
+          continue;
         }
+
+        if(len_std*2 + (j == st_j) > max_len) max_len = len_std*2 + (j == st_j);
       }
     }
 
-    sort(candidates.begin(), candidates.end(), [](const auto &a, const auto &b){
-      return a.first > b.first;
+    sort(candidates.begin(), candidates.end(), [](const CandInfo &a, const CandInfo &b){
+      return a.len * (1 + !!b.move_type) > b.len * (1 + !!a.move_type);
     });
 
     const auto above_maxlen_info = find_above_max_len(row, st_j, state_now, state_goal);
@@ -1023,8 +1004,10 @@ void solve_row_clearly(Operations& ops, const int row, Board& state_now, const B
     int best_score = -1, best_len = -1;
 
     for(int p = 0; p < min(max_select_num, (int)candidates.size()); p++){
-      const int i = candidates[p].second.y();
-      const int j = candidates[p].second.x();
+      if(candidates[p].move_type == 3) continue;
+
+      const int i = candidates[p].pos.y();
+      const int j = candidates[p].pos.x();
 
       const int lr_kata_id = get_max_kata_id(h - 1 - row);
       const int lr_kata_size = cutting_dies[lr_kata_id].height();
