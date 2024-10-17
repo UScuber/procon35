@@ -936,7 +936,7 @@ void solve_row_clearly(Operations& ops, const int row, Board& state_now, const B
       int move_type = -1;
       int len = -1;
       int con_len = -1; // 実際にst_jから繋がっている量
-      int u_kata_size = -1;
+      int u_kata_size = -1; // 下に持ってく時に使う型のサイズ
       Operation pos; // 位置と左右寄せに使う型idだけ保持
     };
     vector<CandInfo> candidates;
@@ -948,7 +948,8 @@ void solve_row_clearly(Operations& ops, const int row, Board& state_now, const B
       const int lr_kata_id = get_max_kata_id(h - 1 - row);
       const int lr_kata_size = cutting_dies[lr_kata_id].height();
 
-      const int u_kata_id = get_max_kata_id(i - row + 1);
+      // type1ではなくtype2を使ってそろえる
+      const int u_kata_id = get_max_kata_id(i - row + 1 + 1);
       const int u_kata_size = cutting_dies[u_kata_id].height();
 
       for(int j = 0; j < w; j++){
@@ -1009,15 +1010,13 @@ void solve_row_clearly(Operations& ops, const int row, Board& state_now, const B
     int best_score = -1, best_len = -1;
 
     for(int p = 0; p < min(max_select_num, (int)candidates.size()); p++){
-      if(candidates[p].move_type == 3) continue;
-
       const int i = candidates[p].pos.y();
       const int j = candidates[p].pos.x();
 
       const int lr_kata_id = get_max_kata_id(h - 1 - row);
       const int lr_kata_size = cutting_dies[lr_kata_id].height();
 
-      const int u_kata_id = get_max_kata_id(i - row + 1);
+      const int u_kata_id = get_max_kata_id(i - row + 1 + 1);
       const int u_kata_size = cutting_dies[u_kata_id].height();
 
       Operations op;
@@ -1077,7 +1076,7 @@ void solve_row_clearly(Operations& ops, const int row, Board& state_now, const B
           tmp_state.slide(op.back());
         }
       }
-      int kata = u_kata_id;
+      const int kata = u_kata_id;
       // if(len < u_kata_size) for(; kata-3 >= 1; kata -= 3){
       //   if(len > (int)cutting_dies[kata].height()){
       //     kata = min(u_kata_id, kata + 3);
@@ -1085,7 +1084,9 @@ void solve_row_clearly(Operations& ops, const int row, Board& state_now, const B
       //   }
       // }
       // op.push_back({u_kata_id, i + 1 - u_kata_size, st_j, Dir::U});
-      op.push_back({kata, i + 1 - (int)cutting_dies[kata].height(), st_j, Dir::U});
+
+      // type2を使う
+      op.push_back({kata+1, i + 1 - (int)cutting_dies[kata].height() + 1, st_j, Dir::U});
       tmp_state.slide(op.back());
 
       int nxt_j = st_j + len;
