@@ -476,10 +476,10 @@ void solve_last_row(Operations& ops, Board& state_now, const Board& state_goal){
 }
 
 
-int find_max_len(const int row, const int st_j, const Board& state_now, const Board& state_goal){
+pair<int,int> find_max_len(const int row, const int st_j, const Board& state_now, const Board& state_goal){
   const int h = state_now.height(), w = state_now.width();
 
-  if(st_j >= w) return 0;
+  if(st_j >= w) return {0, 1000};
 
   // uchar s[257*257], z[257*257];
   // vector<uchar> s(257*257), z(257*257);
@@ -499,13 +499,49 @@ int find_max_len(const int row, const int st_j, const Board& state_now, const Bo
 
   z_algo(s.data(), (h-1-row)*(w+1) + ulen+1, z.data());
 
-  int max_len = 0;
+
+  // int max_len = 0;
+  // for(int i = row; i < h-1; i++){
+  //   for(int j = 0; j < w; j++){
+  //     max_len = max(max_len, (int)z[(i-row)*(w+1) + ulen+1 + j]);
+  //   }
+  // }
+  // return {max_len, 2};
+
+  // int max_len = 0;
+  int best_len = 0, best_op_num = 1000;
   for(int i = row; i < h-1; i++){
+    const int lr_kata_size = get_max_kata_size(h - 1 - row);
+    const int u_kata_size = get_max_kata_size(i - row + 1 + 1);
+
     for(int j = 0; j < w; j++){
-      max_len = max(max_len, (int)z[(i-row)*(w+1) + ulen+1 + j]);
+      const int con_len = z[(i-row)*(w+1) + ulen+1 + j];
+      const int len_std = min(con_len, u_kata_size);
+
+      if(con_len <= 0) continue;
+
+      int opsnum = (con_len + u_kata_size-1) / u_kata_size;
+      if(j == st_j){
+        // そのまま落とせる
+      }else if(abs(j - st_j) <= lr_kata_size){
+        // lr_kata_sizeで余白を寄せられる
+        opsnum++;
+      }else if((h-1 - i) & 1){
+        // 23を使う
+        opsnum++;
+      }else if((len_std + st_j <= lr_kata_size && st_j < j) || (w-st_j <= lr_kata_size && j < st_j)){
+        // lenもまとめて移動できる
+        opsnum++;
+      }else{
+        opsnum += __builtin_ctz(h-1 - i);
+      }
+      if(best_len * opsnum < con_len * best_op_num){
+        best_len = con_len;
+        best_op_num = opsnum;
+      }
     }
   }
-  return max_len;
+  return {best_len, best_op_num};
 }
 
 // st_j以降で真上にあるピースで最大長を探す(高さによる制限も考慮)
@@ -1094,14 +1130,14 @@ void solve_row_clearly(Operations& ops, const int row, Board& state_now, const B
       // }
       // op.push_back({u_kata_id, i + 1 - u_kata_size, st_j, Dir::U});
 
-      // type2を使う
+      // type2を使て下に落とす
       op.push_back({kata+1, i + 1 - (int)cutting_dies[kata].height() + 1, st_j, Dir::U});
       tmp_state.slide(op.back());
 
       int nxt_j = st_j + len;
       while(nxt_j < w && tmp_state[h-1][nxt_j] == state_goal[h-row-1][nxt_j]) nxt_j++;
-      const int next_maxlen = find_max_len(row, nxt_j, tmp_state, state_goal);
-      const int score = (next_maxlen + nxt_j - st_j) * 1000 / (1 + (j != st_j) + 2);
+      const auto next_maxlen_info = find_max_len(row, nxt_j, tmp_state, state_goal);
+      const int score = (next_maxlen_info.first + nxt_j - st_j) * 1000 / (1 + (j != st_j) + next_maxlen_info.second);
       cand_scores[p] = score;
       cand_lens[p] = len;
       cand_ops[p] = move(op);
