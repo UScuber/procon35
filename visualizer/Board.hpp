@@ -197,6 +197,8 @@ public:
 	BoardConnect() {}
 	void initialize(const BitBoard& board_goal, const bool is_network);
 	void initialize(const BitBoard& board_start, const BitBoard& board_goal, const bool is_network);
+	bool is_started(void)const;
+	BitBoard get_board_goal(void) const;
 	void update(void);
 	void draw(void) const;
 };
@@ -257,11 +259,15 @@ void BoardConnect::update_gui(void) {
 			if (this->option_finished[option]) {
 				continue;
 			}
-			Connect connect;
-			if (not connect.get_problem()) {
-				continue;
+			if (this->is_network) {
+				Connect connect;
+				if (not connect.get_problem()) {
+					continue;
+				}
+				this->initialize(connect.get_problem_board_start(), connect.get_problem_board_goal(), this->is_network);
+			}else {
+				this->initialize(this->board_start, this->board_goal, this->is_network);
 			}
-			this->initialize(connect.get_problem_board_start(), connect.get_problem_board_goal(), this->is_network);
 			this->is_running = true;
 			this->is_start = true;
 			this->solver_task.initialize(this->board_start, this->board_goal, option);
@@ -305,9 +311,15 @@ void BoardConnect::update(void) {
 	update_solver();
 }
 
+bool BoardConnect::is_started(void) const {
+	return this->is_start;
+}
+BitBoard BoardConnect::get_board_goal(void) const {
+	return this->board_goal;
+}
 
 void BoardConnect::draw_details(void) const {
-	font(U"手数:{}"_fmt(Format(this->option_jsons[option_now][U"n"]))).drawAt(Vec2{ Scene::CenterF().x, Scene::Size().y * 14.0 / 15.0 }, Palette::Black);
+	font(U"手数:{}"_fmt(Format(this->is_running ? this->datawriter.get_json()[U"n"] : this->option_jsons[option_now][U"n"]))).drawAt(Vec2{Scene::CenterF().x, Scene::Size().y * 14.0 / 15.0}, Palette::Black);
 	if (this->option_finished[option_now] and this->option_post_successful[option_now]) {
 		this->font(this->is_network ? U"post is successful!" : U"Done!").drawAt(35, Vec2{ Scene::Center().x, Scene::Size().y * 13.0 / 15.0 }, Palette::Black);
 	}
