@@ -231,6 +231,7 @@ void BoardConnect::initialize(const BitBoard& board_start, const BitBoard& board
 	this->board_start = board_start;
 	this->board_goal = board_goal;
 	this->option_finished.resize(this->solver_options.size(), false);
+	this->option_post_successful.resize(this->solver_options.size(), false);
 	this->option_jsons.resize(this->solver_options.size(), this->datawriter.get_json());
 	this->initialize_board();
 	//this->is_finished = false;
@@ -253,12 +254,12 @@ void BoardConnect::update_gui(void) {
 		Arg::bottomRight_<Vec2> anchor = calc_button_pos(option);
 		if (SushiGUI::button4(this->font_button, Format(option), anchor, Size{ 50, 50 }, (not is_start) or not(this->is_running or option==option_now))) {
 			this->option_now = option;
-			if (this->option_finished[option_now]) {
+			if (this->option_finished[option]) {
 				continue;
 			}
 			Connect connect;
 			if (not connect.get_problem()) {
-				this->option_finished[option_now] = true;
+				continue;
 			}
 			this->initialize(connect.get_problem_board_start(), connect.get_problem_board_goal(), this->is_network);
 			this->is_running = true;
@@ -306,7 +307,7 @@ void BoardConnect::update(void) {
 
 
 void BoardConnect::draw_details(void) const {
-	font(U"手数:{}"_fmt(cnt_move)).drawAt(Vec2{ Scene::CenterF().x, Scene::Size().y * 14.0 / 15.0 }, Palette::Black);
+	font(U"手数:{}"_fmt(Format(this->option_jsons[option_now][U"n"]))).drawAt(Vec2{ Scene::CenterF().x, Scene::Size().y * 14.0 / 15.0 }, Palette::Black);
 	if (this->option_finished[option_now] and this->option_post_successful[option_now]) {
 		this->font(this->is_network ? U"post is successful!" : U"Done!").drawAt(35, Vec2{ Scene::Center().x, Scene::Size().y * 13.0 / 15.0 }, Palette::Black);
 	}
