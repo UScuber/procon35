@@ -272,7 +272,7 @@ void BoardConnect::update_gui(void) {
 	};
 	if (SushiGUI::button3(this->font_button, U"送信", anchor, Size(150, 75), this->is_network)) {
 		Connect connect;
-		this->option_post_successful[option_now] = connect.post_answer(this->datawriter.get_json());
+		this->option_post_successful[option_now] = connect.post_answer(this->option_jsons[option_now]);
 		this->datawriter.get_json().save(U"./answer.json");
 	}
 }
