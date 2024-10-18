@@ -482,8 +482,10 @@ int find_max_len(const int row, const int st_j, const Board& state_now, const Bo
   if(st_j >= w) return 0;
 
   // uchar s[257*257], z[257*257];
-  vector<uchar> s(257*257), z(257*257);
+  // vector<uchar> s(257*257), z(257*257);
   const int ulen = w - st_j; // 右下の未確定の場所の長さ
+  vector<uchar> s((h-1-row)*(w+1) + ulen+1), z((h-1-row)*(w+1) + ulen+1);
+
   for(int j = 0; j < ulen; j++){
     s[j] = state_goal[h-row-1][st_j + j];
   }
@@ -929,6 +931,8 @@ void solve_row_clearly(Operations& ops, const int row, Board& state_now, const B
     z_algo(s, (h-1-row)*(w+1) + ulen+1, z);
 
 
+    // 256x256:10, 128x128:110, 64x64:135, ...
+    // const int max_select_num = 10 + (256*256-h*w)/490;
     const int max_select_num = 100;
 
     // 真下に落とせるものの情報
@@ -986,9 +990,10 @@ void solve_row_clearly(Operations& ops, const int row, Board& state_now, const B
       return a.con_len * bnum > b.con_len * anum;
     });
 
-    const auto above_maxlen_info = find_above_max_len(row, st_j, state_now, state_goal);
-    cerr << "maxlen: " << max_len/2 << ", limit: " << limit << ", st_j: " << st_j << ", row: " << row << ", ";
-    cerr << "above maxlen: " << above_maxlen_info.first << " (" << above_maxlen_info.second.x() << ")" << "\n";
+    // const auto above_maxlen_info = find_above_max_len(row, st_j, state_now, state_goal);
+    // cerr << "maxlen: " << max_len/2 << ", limit: " << limit << ", st_j: " << st_j << ", row: " << row << ", ";
+    // cerr << "above maxlen: " << above_maxlen_info.first << " (" << above_maxlen_info.second.x() << ")" << "\n";
+
     // 2手以内で揃えられるピース群がない
     if(max_len/2 <= 0){
       // type2の抜き型で未完成部分の行の偶奇を変える
@@ -996,20 +1001,23 @@ void solve_row_clearly(Operations& ops, const int row, Board& state_now, const B
       continue;
     }
 
-    const auto best_connection = search_best_connection(row, state_now, state_goal);
-    const int longest = find_max_len(row, st_j, state_now, state_goal);
-    if(longest * 4 < (1 + !(max_len & 1)) * best_connection.second){
-      cerr << "longest: " << longest << " " << best_connection.second << "\n";
-      cerr << "connection is better\n";
-      slide_and_output(best_connection.first, ops, state_now);
-      continue;
-    }
+    // const auto best_connection = search_best_connection(row, state_now, state_goal);
+    // const int longest = find_max_len(row, st_j, state_now, state_goal);
+    // if(longest * 4 < (1 + !(max_len & 1)) * best_connection.second){
+    //   cerr << "longest: " << longest << " " << best_connection.second << "\n";
+    //   cerr << "connection is better\n";
+    //   slide_and_output(best_connection.first, ops, state_now);
+    //   continue;
+    // }
 
 
-    Operations best_op;
-    int best_score = -1, best_len = -1;
+    const int first_search_num = min(max_select_num, (int)candidates.size());
 
-    for(int p = 0; p < min(max_select_num, (int)candidates.size()); p++){
+    vector<int> cand_scores(first_search_num), cand_lens(first_search_num);
+    vector<Operations> cand_ops(first_search_num);
+
+    #pragma omp parallel for
+    for(int p = 0; p < first_search_num; p++){
       const int i = candidates[p].pos.y();
       const int j = candidates[p].pos.x();
 
@@ -1020,6 +1028,7 @@ void solve_row_clearly(Operations& ops, const int row, Board& state_now, const B
       const int u_kata_size = cutting_dies[u_kata_id].height();
 
       Operations op;
+      op.reserve(2);
       Board tmp_state = state_now;
 
       const int len = min((int)z[(i-row)*(w+1) + ulen+1 + j], u_kata_size); // 長さ
@@ -1093,12 +1102,28 @@ void solve_row_clearly(Operations& ops, const int row, Board& state_now, const B
       while(nxt_j < w && tmp_state[h-1][nxt_j] == state_goal[h-row-1][nxt_j]) nxt_j++;
       const int next_maxlen = find_max_len(row, nxt_j, tmp_state, state_goal);
       const int score = (next_maxlen + nxt_j - st_j) * 1000 / (1 + (j != st_j) + 2);
-      if(best_score < score){
-        best_score = score;
-        best_len = len;
-        best_op = move(op);
+      cand_scores[p] = score;
+      cand_lens[p] = len;
+      cand_ops[p] = move(op);
+
+      // if(best_score < score){
+      //   best_score = score;
+      //   best_len = len;
+      //   best_op = move(op);
+      // }
+    }
+
+    Operations best_op;
+    int best_score = -1, best_len = -1;
+
+    for(int p = 0; p < first_search_num; p++){
+      if(best_score < cand_scores[p]){
+        best_score = cand_scores[p];
+        best_len = cand_lens[p];
+        best_op = move(cand_ops[p]);
       }
     }
+
     if(!best_op.empty()){
       for(const Operation op : best_op){
         slide_and_output(op, ops, state_now);
