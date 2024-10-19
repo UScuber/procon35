@@ -30,6 +30,8 @@ struct Bitset {
 
   inline Bitset& rotate(int l, int m, int r);
 
+  inline void copy_range(const int l, const int r, const Bitset& bit);
+
   struct reference {
     ull *ptr;
     const int idx;
@@ -151,6 +153,12 @@ inline Bitset &Bitset::rotate(int l, int m, int r){
   buf.mask(r - l);
   *this |= (buf << l);
   return *this;
+}
+
+inline void Bitset::copy_range(const int l, const int r, const Bitset& bit){
+  for(int i = l/32; i < (r+31)/32; i++){
+    a[i] = bit.a[i];
+  }
 }
 
 
