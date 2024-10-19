@@ -89,8 +89,8 @@ void Main() {
 	manager.add<ConnectScene>(U"ConnectScene");
 	manager.add<AutoScene>(U"AutoScene");
 
+	const ScopedRenderStates2D sampler{ SamplerState::ClampNearest };
 	while (System::Update()) {
-		const ScopedRenderStates2D sampler{ SamplerState::ClampNearest };
 		if (not manager.update()) {
 			break;
 		}

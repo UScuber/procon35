@@ -318,8 +318,9 @@ BitBoard BoardConnect::get_board_goal(void) const {
 	return this->board_goal;
 }
 
+
 void BoardConnect::draw_details(void) const {
-	font(U"手数:{}"_fmt(Format(this->is_running ? this->datawriter.get_json()[U"n"] : this->option_jsons[option_now][U"n"]))).drawAt(Vec2{Scene::CenterF().x, Scene::Size().y * 14.0 / 15.0}, Palette::Black);
+	font(U"手数:{}"_fmt(Format(this->is_running ? this->cnt_move : this->option_jsons[option_now][U"n"]))).drawAt(Vec2{Scene::CenterF().x, Scene::Size().y * 14.0 / 15.0}, Palette::Black);
 	if (this->option_finished[option_now] and this->option_post_successful[option_now]) {
 		this->font(this->is_network ? U"post is successful!" : U"Done!").drawAt(35, Vec2{ Scene::Center().x, Scene::Size().y * 13.0 / 15.0 }, Palette::Black);
 	}
@@ -329,9 +330,13 @@ void BoardConnect::draw_details(void) const {
 	}
 }
 
+uint64 total_time = 0;
 void BoardConnect::draw(void) const {
 	draw_board();
+	//uint64 now = Time::GetMicrosecSinceEpoch();
 	draw_details();
+	//total_time += Time::GetMicrosecSinceEpoch() - now;
+	//Console << total_time;
 }
 
 
