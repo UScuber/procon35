@@ -1049,8 +1049,9 @@ void solve_row_clearly(Operations& ops, const int row, Board& state_now, const B
 
     const int first_search_num = min(max_select_num, (int)candidates.size());
 
-    vector<int> cand_scores(first_search_num), cand_lens(first_search_num);
+    vector<int> cand_scores(first_search_num, -1), cand_lens(first_search_num);
     vector<Operations> cand_ops(first_search_num);
+    static vector<Board> boards(max_select_num, Board(h, w));
 
     #pragma omp parallel for
     for(int p = 0; p < first_search_num; p++){
@@ -1065,7 +1066,9 @@ void solve_row_clearly(Operations& ops, const int row, Board& state_now, const B
 
       Operations op;
       op.reserve(2);
-      Board tmp_state = state_now;
+      // Board tmp_state = state_now;
+      Board& tmp_state = boards[p];
+      tmp_state.copy(state_now, row);
 
       const int len = min((int)z[(i-row)*(w+1) + ulen+1 + j], u_kata_size); // 長さ
 
@@ -1121,7 +1124,7 @@ void solve_row_clearly(Operations& ops, const int row, Board& state_now, const B
           tmp_state.slide(op.back());
         }
       }
-      const int kata = u_kata_id;
+
       // if(len < u_kata_size) for(; kata-3 >= 1; kata -= 3){
       //   if(len > (int)cutting_dies[kata].height()){
       //     kata = min(u_kata_id, kata + 3);
@@ -1130,23 +1133,54 @@ void solve_row_clearly(Operations& ops, const int row, Board& state_now, const B
       // }
       // op.push_back({u_kata_id, i + 1 - u_kata_size, st_j, Dir::U});
 
-      // type2を使て下に落とす
-      op.push_back({kata+1, i + 1 - (int)cutting_dies[kata].height() + 1, st_j, Dir::U});
-      tmp_state.slide(op.back());
+      if(h*w < 150*150){
+        Operations down_cand_ops;
+        for(int kata = u_kata_id; kata >= 1; kata -= 3){
+          if((int)cutting_dies[kata].height() > i - row + 1) continue;
+          // type1
+          down_cand_ops.push_back({kata, i + 1 - (int)cutting_dies[kata].height(), st_j, Dir::U});
+          if((int)cutting_dies[kata].width() < len) break;
+        }
+        for(int kata = u_kata_id; kata >= 1; kata -= 3){
+          // type2
+          down_cand_ops.push_back({kata+1, i + 1 - (int)cutting_dies[kata].height() + 1, st_j, Dir::U});
+          if((int)cutting_dies[kata].width() < len) break;
+        }
 
-      int nxt_j = st_j + len;
-      while(nxt_j < w && tmp_state[h-1][nxt_j] == state_goal[h-row-1][nxt_j]) nxt_j++;
-      const auto next_maxlen_info = find_max_len(row, nxt_j, tmp_state, state_goal);
-      const int score = (next_maxlen_info.first + nxt_j - st_j) * 1000 / (1 + (j != st_j) + next_maxlen_info.second);
-      cand_scores[p] = score;
-      cand_lens[p] = len;
-      cand_ops[p] = move(op);
+        Operation best(1U << 31);
+        for(const Operation down_op : down_cand_ops){
+          tmp_state.slide(down_op);
+          int nxt_j = st_j;
+          while(nxt_j < w && tmp_state[h-1][nxt_j] == state_goal[h-row-1][nxt_j]) nxt_j++;
+          const auto next_maxlen_info = find_max_len(row, nxt_j, tmp_state, state_goal);
+          const int score = (next_maxlen_info.first + nxt_j - st_j) * 1000 / (1 + (j != st_j) + next_maxlen_info.second);
+          tmp_state.slide_reverse(down_op);
 
-      // if(best_score < score){
-      //   best_score = score;
-      //   best_len = len;
-      //   best_op = move(op);
-      // }
+          if(cand_scores[p] < score){
+            cand_scores[p] = score;
+            cand_lens[p] = len;
+            best = down_op;
+          }
+        }
+        assert(best != Operation(1U << 31));
+
+        op.push_back(best);
+        cand_ops[p] = move(op);
+      }else{
+        const int kata = u_kata_id;
+
+        // type2を使て下に落とす
+        op.push_back({kata+1, i + 1 - (int)cutting_dies[kata].height() + 1, st_j, Dir::U});
+        tmp_state.slide(op.back());
+
+        int nxt_j = st_j + len;
+        while(nxt_j < w && tmp_state[h-1][nxt_j] == state_goal[h-row-1][nxt_j]) nxt_j++;
+        const auto next_maxlen_info = find_max_len(row, nxt_j, tmp_state, state_goal);
+        const int score = (next_maxlen_info.first + nxt_j - st_j) * 1000 / (1 + (j != st_j) + next_maxlen_info.second);
+        cand_scores[p] = score;
+        cand_lens[p] = len;
+        cand_ops[p] = move(op);
+      }
     }
 
     Operations best_op;
