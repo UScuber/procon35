@@ -13,6 +13,7 @@ public:
 	DataWriter(void);
 	void add_op(const int pattern_idx, const Point& pos, const Dir dir);
 	JSON get_json(void) const;
+	const JSON& get_json_ref(void) const;
 	void initialize(void);
 };
 DataWriter::DataWriter(void) {
@@ -28,6 +29,9 @@ void DataWriter::add_op(const int pattern_idx, const Point& pos, const Dir dir) 
 	json[U"n"] = n;
 }
 JSON DataWriter::get_json(void) const {
+	return this->json;
+}
+const JSON& DataWriter::get_json_ref(void)const {
 	return this->json;
 }
 void DataWriter::initialize(void) {

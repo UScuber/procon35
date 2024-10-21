@@ -176,15 +176,17 @@ class BoardConnect : public Board {
 private:
 	Vec2 calc_piece_pos(int row, int col) const override;
 	SolverTask solver_task;
+	bool is_start = false;
+	bool is_running = false;
 	bool is_network = false;
-	bool is_finished = true;
-	bool is_success_post = false;
 	Array<int> solver_options = step(8);
 	JSON best_answer;
 	BitBoard board_start{ 0,0 }, board_goal{ 0, 0 };
 	const Font font_button{ 40, Typeface::Bold };
 	const Font font_op_num{ 20 };
 	int option_now = 0;
+	Array<bool> option_finished;
+	Array<bool> option_post_successful;
 	Array<JSON> option_jsons;
 	Vec2 calc_button_pos(const int& idx) const;
 	void initialize_board(void);
@@ -195,6 +197,8 @@ public:
 	BoardConnect() {}
 	void initialize(const BitBoard& board_goal, const bool is_network);
 	void initialize(const BitBoard& board_start, const BitBoard& board_goal, const bool is_network);
+	bool is_started(void)const;
+	BitBoard get_board_goal(void) const;
 	void update(void);
 	void draw(void) const;
 };
@@ -228,6 +232,8 @@ void BoardConnect::initialize(const BitBoard& board_start, const BitBoard& board
 	this->board = BitBoard(this->height, this->width);
 	this->board_start = board_start;
 	this->board_goal = board_goal;
+	this->option_finished.resize(this->solver_options.size(), false);
+	this->option_post_successful.resize(this->solver_options.size(), false);
 	this->option_jsons.resize(this->solver_options.size(), this->datawriter.get_json());
 	this->initialize_board();
 	//this->is_finished = false;
@@ -241,7 +247,6 @@ void BoardConnect::initialize_board(void) {
 		}
 	}
 	this->cnt_move = 0;
-	this->is_success_post = false;
 	this->datawriter.initialize();
 	this->update_board_texture();
 }
@@ -249,14 +254,22 @@ void BoardConnect::initialize_board(void) {
 void BoardConnect::update_gui(void) {
 	for (const int& option : solver_options) {
 		Arg::bottomRight_<Vec2> anchor = calc_button_pos(option);
-		if (SushiGUI::button4(this->font_button, Format(option), anchor, Size{ 50, 50 }, this->is_finished)) {
-			this->is_finished = false;
+		if (SushiGUI::button4(this->font_button, Format(option), anchor, Size{ 50, 50 }, (not is_start) or not(this->is_running or option==option_now))) {
 			this->option_now = option;
-			Connect connect;
-			if (not connect.get_problem()) {
-				this->is_finished = true;
+			if (this->option_finished[option]) {
+				continue;
 			}
-			this->initialize(connect.get_problem_board_start(), connect.get_problem_board_goal(), this->is_network);
+			if (this->is_network) {
+				Connect connect;
+				if (not connect.get_problem()) {
+					continue;
+				}
+				this->initialize(connect.get_problem_board_start(), connect.get_problem_board_goal(), this->is_network);
+			}else {
+				this->initialize(this->board_start, this->board_goal, this->is_network);
+			}
+			this->is_running = true;
+			this->is_start = true;
 			this->solver_task.initialize(this->board_start, this->board_goal, option);
 		}
 	}
@@ -266,23 +279,25 @@ void BoardConnect::update_gui(void) {
 	};
 	if (SushiGUI::button3(this->font_button, U"送信", anchor, Size(150, 75), this->is_network)) {
 		Connect connect;
-		this->is_success_post = connect.post_answer(this->datawriter.get_json());
+		this->option_post_successful[option_now] = connect.post_answer(this->option_jsons[option_now]);
 		this->datawriter.get_json().save(U"./answer.json");
 	}
 }
 
 void BoardConnect::update_solver(void) {
-	if (this->cnt_move != this->solver_task.get_op_num() and not this->is_finished) {
+	if (this->cnt_move != this->solver_task.get_op_num() and not this->option_finished[option_now]) {
 		const Array<Array<int>> ops = this->solver_task.get_op();
 		for (const Array<int>& op : ops) {
 			if (op[0] == -1 and op[1] == -1 and op[2] == -1 and op[3] == -1) {
-				this->is_finished = true;
+				this->is_running = false;
+				this->option_finished[option_now] = true;
 				this->option_jsons[this->option_now] = this->datawriter.get_json();
 			}else if (op[0] == -2 and op[1] == -2 and op[2] == -2 and op[3] == -2) {
 				std::string error_message;
 				std::getline(this->solver_task.get_child().istream(), error_message);
 				Console << Unicode::Widen(error_message);
-				this->is_finished = true;
+				this->is_running = false;
+				this->option_finished[option_now] = true;
 			}else {
 				this->move(op[0], op[2], op[1], (Dir)op[3], true, false);
 			}
@@ -296,10 +311,17 @@ void BoardConnect::update(void) {
 	update_solver();
 }
 
+bool BoardConnect::is_started(void) const {
+	return this->is_start;
+}
+BitBoard BoardConnect::get_board_goal(void) const {
+	return this->board_goal;
+}
+
 
 void BoardConnect::draw_details(void) const {
-	font(U"手数:{}"_fmt(cnt_move)).drawAt(Vec2{ Scene::CenterF().x, Scene::Size().y * 14.0 / 15.0 }, Palette::Black);
-	if (this->is_finished and this->is_success_post) {
+	font(U"手数:{}"_fmt(Format(this->is_running ? this->cnt_move : this->option_jsons[option_now][U"n"]))).drawAt(Vec2{Scene::CenterF().x, Scene::Size().y * 14.0 / 15.0}, Palette::Black);
+	if (this->option_finished[option_now] and this->option_post_successful[option_now]) {
 		this->font(this->is_network ? U"post is successful!" : U"Done!").drawAt(35, Vec2{ Scene::Center().x, Scene::Size().y * 13.0 / 15.0 }, Palette::Black);
 	}
 	for (const int& option : solver_options) {
@@ -308,9 +330,13 @@ void BoardConnect::draw_details(void) const {
 	}
 }
 
+uint64 total_time = 0;
 void BoardConnect::draw(void) const {
 	draw_board();
+	//uint64 now = Time::GetMicrosecSinceEpoch();
 	draw_details();
+	//total_time += Time::GetMicrosecSinceEpoch() - now;
+	//Console << total_time;
 }
 
 

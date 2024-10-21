@@ -33,6 +33,7 @@ class ConnectScene : public App::Scene {
 private:
 	BoardExample board_example;
 	BoardConnect board_connect;
+	bool is_example_initialized = false;
 public:
 	ConnectScene(const InitData& init);
 	void update(void) override;
@@ -43,6 +44,10 @@ ConnectScene::ConnectScene(const InitData& init) : IScene{ init } {
 	this->board_connect.initialize(BitBoard(0,0), true);
 }
 void ConnectScene::update(void) {
+	if (not is_example_initialized and this->board_connect.is_started()) {
+		this->board_example.initialize(this->board_connect.get_board_goal(), false);
+		this->is_example_initialized = true;
+	}
 	if (KeyP.down()) changeScene(U"SelectScene");
 	this->board_connect.update();
 }
@@ -84,8 +89,8 @@ void Main() {
 	manager.add<ConnectScene>(U"ConnectScene");
 	manager.add<AutoScene>(U"AutoScene");
 
+	const ScopedRenderStates2D sampler{ SamplerState::ClampNearest };
 	while (System::Update()) {
-		const ScopedRenderStates2D sampler{ SamplerState::ClampNearest };
 		if (not manager.update()) {
 			break;
 		}
