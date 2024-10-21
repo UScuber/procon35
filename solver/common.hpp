@@ -3,6 +3,7 @@
 #include <iostream>
 #include <vector>
 #include <algorithm>
+#include <random>
 #include "board.hpp"
 
 
@@ -26,6 +27,14 @@ using uchar = unsigned char;
 enum class Dir {
   U,D,L,R,
 };
+
+
+int rnd(const int l, const int r){
+  static std::random_device seed;
+  static std::mt19937_64 mt(seed());
+
+  return mt() % (r - l) + l;
+}
 
 
 struct Board;

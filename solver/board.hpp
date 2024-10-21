@@ -23,6 +23,9 @@ struct Board {
   void slide_reverse(const Board& kata, const int posy, const int posx, const Dir dir);
   void slide_reverse(const Operation& op);
 
+  // i=row,row+1,...,h-1までをコピー
+  void copy(const Board& board, const int row);
+
 
   // [i][j]でアクセスする用
   struct reference {
@@ -116,6 +119,12 @@ void Board::slide_reverse(const Board& kata, const int posy, const int posx, con
 
 void Board::slide_reverse(const Operation& op){
   slide_reverse(cutting_dies[op.kata_idx()], op.y(), op.x(), op.dir());
+}
+
+void Board::copy(const Board& board, const int row){
+  for(int j = 0; j < w; j++){
+    a[j].copy_range(row, h, board.a[j]);
+  }
 }
 
 inline constexpr Board::reference::reference(Bitset *p, const int y) : ptr(p), posy(y){}

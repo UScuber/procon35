@@ -13,19 +13,107 @@ using std::cin;
 #define KATA_12 2 // 1x2 (縦 1, 横 2)
 
 
+// 00 <=> 00
+// 01 <=> 11
+// 10 <=> 10
+// 11 <=> 01
+
+/*
+  回転は反時計回り（入力時と出力時では逆の変換をする）
+  mode : 0 ->   0度回転
+  mode : 1 ->  90度回転
+  mode : 2 -> 180度回転
+  mode : 3 -> 270度回転
+  mode : 4 -> 左右反転 +   0度回転
+  mode : 5 -> 左右反転 +  90度回転
+  mode : 6 -> 左右反転 + 180度回転
+  mode : 7 -> 左右反転 + 270度回転
+*/
+int conversion_mode;
+
+// 座標の変換
+// y, x, h, w
+tuple<int, int, int, int> conversion_coordinate(tuple<int, int, int, int> coord, int mode){
+  auto [y, x, h, w] = coord;
+  if(mode >= 4){ // 左右反転する
+    x = w - 1 - x;
+  }
+  int ny, nx, nh, nw;
+  if(mode % 4 == 0) ny =         y, nx =         x, nh = h, nw = w;
+  if(mode % 4 == 1) ny = w - 1 - x, nx =         y, nh = w, nw = h;
+  if(mode % 4 == 2) ny = h - 1 - y, nx = w - 1 - x, nh = h, nw = w;
+  if(mode % 4 == 3) ny =         x, nx = h - 1 - y, nh = w, nw = h;
+  return {ny, nx, nh, nw}; 
+}
+// 反時計回りに90度回転
+Dir rotate_dir(Dir d){
+  if(d == Dir::U) return Dir::L;
+  if(d == Dir::D) return Dir::R;
+  if(d == Dir::L) return Dir::D;
+  return Dir::U;
+}
+// 反転
+Dir reverse_dir(Dir d){
+  if(d == Dir::U) return Dir::U;
+  if(d == Dir::D) return Dir::D;
+  if(d == Dir::L) return Dir::R;
+  return Dir::L;
+}
+// 反時計回りに90度回転
+// h, w, y, x, kata_id, dir
+tuple<int, int, int, int, int, Dir> rotate_op(tuple<int, int, int, int, int, Dir> op){
+  auto [h, w, y, x, kata_id, d] = op;
+  int kata_type = (kata_id == 0 ? 0 : (kata_id - 1) % 3);
+  int kata_size = cutting_dies[kata_id].height();
+  Dir new_dir = rotate_dir(d);
+  if(kata_type == 0){
+    return {w, h, w - x - kata_size    , y, kata_id    , new_dir};
+  }else if(kata_type == 1){
+    return {w, h, w - x - kata_size    , y, kata_id + 1, new_dir};
+  }else{
+    return {w, h, w - x - kata_size + 1, y, kata_id - 1, new_dir};
+  }
+}
+// 左右反転
+tuple<int, int, int, int, int, Dir> reverse_op(tuple<int, int, int, int, int, Dir> op){
+  auto [h, w, y, x, kata_id, d] = op;
+  int kata_type = (kata_id == 0 ? 0 : (kata_id - 1) % 3);
+  int kata_size = cutting_dies[kata_id].height();
+  Dir new_dir = reverse_dir(d);
+  if(kata_type == 0){
+    return {h, w, y, w - x - kata_size    , kata_id, new_dir};
+  }else if(kata_type == 1){
+    return {h, w, y, w - x - kata_size    , kata_id, new_dir};
+  }else{
+    return {h, w, y, w - x - kata_size + 1, kata_id, new_dir};
+  }
+}
+
+// 操作の変換
+Operation conversion_op(int h, int w, Operation op, int mode){
+  int y = op.y(), x = op.x(), kata_id = op.kata_idx();
+  Dir d = op.dir();
+  auto tmp = make_tuple(h, w, y, x, kata_id, d);
+  if(mode >= 4)tmp = reverse_op(tmp);
+  for(int i = 0;i < mode % 4;i++)tmp = rotate_op(tmp);
+  auto [nh, nw, ny, nx, nkata_id, nd] = tmp;
+  return {nkata_id, ny, nx, nd};
+}
 
 // スライドと更新を一度にする
 void slide_and_output(const Operation& op, Operations& ops, Board& state_now){
+  int reverse_mode = (conversion_mode >= 4 ? conversion_mode : conversion_mode ^ (conversion_mode & 1) << 1);
+  Operation new_op = conversion_op(state_now.height(), state_now.width(), op, reverse_mode);
   ops.push_back(op);
   state_now.slide(op);
-  cout << op << endl;
+  cout << new_op << endl;
 }
 
 
 // 同じ列から探索
 bool solve_pos_a(vector<Operation>& ops, int row, int col, Board& state_now, const Board& state_goal){
   const int h = state_now.height();
-  int need_val = state_goal[h - 1 - row][col];
+  int need_val = state_goal[h - 1 - row][col]; 
   for(int i = row; i < h; i++){
     if(state_now[i][col] != need_val) continue;
     // (i, col) を1x1の抜き型で下寄せ
@@ -388,14 +476,16 @@ void solve_last_row(Operations& ops, Board& state_now, const Board& state_goal){
 }
 
 
-int find_max_len(const int row, const int st_j, const Board& state_now, const Board& state_goal){
+pair<int,int> find_max_len(const int row, const int st_j, const Board& state_now, const Board& state_goal){
   const int h = state_now.height(), w = state_now.width();
 
-  if(st_j >= w) return 0;
+  if(st_j >= w) return {0, 1000};
 
   // uchar s[257*257], z[257*257];
-  vector<uchar> s(257*257), z(257*257);
+  // vector<uchar> s(257*257), z(257*257);
   const int ulen = w - st_j; // 右下の未確定の場所の長さ
+  vector<uchar> s((h-1-row)*(w+1) + ulen+1), z((h-1-row)*(w+1) + ulen+1);
+
   for(int j = 0; j < ulen; j++){
     s[j] = state_goal[h-row-1][st_j + j];
   }
@@ -409,13 +499,49 @@ int find_max_len(const int row, const int st_j, const Board& state_now, const Bo
 
   z_algo(s.data(), (h-1-row)*(w+1) + ulen+1, z.data());
 
-  int max_len = 0;
+
+  // int max_len = 0;
+  // for(int i = row; i < h-1; i++){
+  //   for(int j = 0; j < w; j++){
+  //     max_len = max(max_len, (int)z[(i-row)*(w+1) + ulen+1 + j]);
+  //   }
+  // }
+  // return {max_len, 2};
+
+  // int max_len = 0;
+  int best_len = 0, best_op_num = 1000;
   for(int i = row; i < h-1; i++){
+    const int lr_kata_size = get_max_kata_size(h - 1 - row);
+    const int u_kata_size = get_max_kata_size(i - row + 1 + 1);
+
     for(int j = 0; j < w; j++){
-      max_len = max(max_len, (int)z[(i-row)*(w+1) + ulen+1 + j]);
+      const int con_len = z[(i-row)*(w+1) + ulen+1 + j];
+      const int len_std = min(con_len, u_kata_size);
+
+      if(con_len <= 0) continue;
+
+      int opsnum = (con_len + u_kata_size-1) / u_kata_size;
+      if(j == st_j){
+        // そのまま落とせる
+      }else if(abs(j - st_j) <= lr_kata_size){
+        // lr_kata_sizeで余白を寄せられる
+        opsnum++;
+      }else if((h-1 - i) & 1){
+        // 23を使う
+        opsnum++;
+      }else if((len_std + st_j <= lr_kata_size && st_j < j) || (w-st_j <= lr_kata_size && j < st_j)){
+        // lenもまとめて移動できる
+        opsnum++;
+      }else{
+        opsnum += __builtin_ctz(h-1 - i);
+      }
+      if(best_len * opsnum < con_len * best_op_num){
+        best_len = con_len;
+        best_op_num = opsnum;
+      }
     }
   }
-  return max_len;
+  return {best_len, best_op_num};
 }
 
 // st_j以降で真上にあるピースで最大長を探す(高さによる制限も考慮)
@@ -498,21 +624,7 @@ pair<Operation, int> search_best_connection(const int row, const Board& state_no
       s[(i-row)*(w+1) + ulen+1 + w] = 4; // split
     }
     z_algo(s.data(), (h-1-row)*(w+1) + ulen+1, Zr.data());
-    // cerr << st_j << "\n";
-    // for(int j = 0; j < ulen+1; j++) cerr << min((int)Zr[j], 9);
-    // cerr << "\n";
-    // for(int i = row; i < h-1; i++){
-    //   for(int j = 0; j <= w; j++) cerr << min((int)Zr[(i-row)*(w+1) + j + ulen+1], 9);
-    //   cerr << "\n";
-    // }
-    // cerr << "\n";
-    // for(int j = 0; j < ulen+1; j++) cerr << min((int)s[j], 9);
-    // cerr << "\n";
-    // for(int i = row; i < h-1; i++){
-    //   for(int j = 0; j <= w; j++) cerr << min((int)s[(i-row)*(w+1) + j + ulen+1], 9);
-    //   cerr << "\n";
-    // }
-    // cerr << "\n";
+
     // 右下のピースの値の部分を取り除く
     for(int i = 0; i < (h-1-row)*(w+1); i++) Zr[i] = Zr[i + ulen+1];
 
@@ -671,29 +783,7 @@ pair<Operation, int> search_best_connection(const int row, const Board& state_no
     }
   }
   
-  static int count = 0;
   cerr << "len: " << best_len << "\n";
-  // // count++;
-  // if(best_len >= 17){
-  //   best_op.debug();
-  //   cerr << "\n";
-  //   cerr << "row: " << row << ", stj: " << st_j << "\n";
-  //   // state_now.debug();
-  //   // cerr << "\n";
-  //   for(int j = 0; j < best_op.x(); j++) cerr << (int)state_now[best_op.y()][j];
-  //   cerr << "|";
-  //   for(int j = best_op.x(); j < w; j++) cerr << (int)state_now[best_op.y()][j];
-  //   cerr << "\n";
-  //   cerr << "\n";
-  //   for(int j = 0; j < st_j; j++) cerr << (int)state_goal[h-row-1][j];
-  //   cerr << "|";
-  //   for(int j = st_j; j < w; j++) cerr << (int)state_goal[h-row-1][j];
-  //   cerr << "\n";
-  //   cerr << "\n";
-  //   for(int j = 0; j < w; j++) cerr << (int)Zr[(best_op.y()-row)*(w+1) + j];
-  //   cerr << "\n";
-  //   // if(count >= 3) exit(0);
-  // }
 
   return { best_op, best_len };
 }
@@ -832,7 +922,7 @@ void solve_row_above(Operations& ops, const int row, Board& state_now, const Boa
   while(true){
     int st_j = 0;
     while(st_j < w && state_now[h-1][st_j] == state_goal[h-row-1][st_j]) st_j++;
-    
+
     if(st_j >= w) return;
 
     int max_len;
@@ -840,7 +930,7 @@ void solve_row_above(Operations& ops, const int row, Board& state_now, const Boa
     tie(max_len, best_op) = find_above_max_len(row, st_j, state_now, state_goal);
 
     if(max_len < limit) return;
-    
+
     slide_and_output(best_op, ops, state_now);
     cerr << "solve above: " << "row: " << row << ", maxlen: " << max_len << "\n";
     best_op.debug();
@@ -877,8 +967,19 @@ void solve_row_clearly(Operations& ops, const int row, Board& state_now, const B
     z_algo(s, (h-1-row)*(w+1) + ulen+1, z);
 
 
+    // 256x256:10, 128x128:110, 64x64:135, ...
+    // const int max_select_num = 10 + (256*256-h*w)/490;
     const int max_select_num = 100;
-    vector<pair<int,Operation>> candidates;
+
+    // 真下に落とせるものの情報
+    struct CandInfo {
+      int move_type = -1;
+      int len = -1;
+      int con_len = -1; // 実際にst_jから繋がっている量
+      int u_kata_size = -1; // 下に持ってく時に使う型のサイズ
+      Operation pos; // 位置と左右寄せに使う型idだけ保持
+    };
+    vector<CandInfo> candidates;
 
     bool moved = false;
     // 今ある中で一番長いものを探す
@@ -887,33 +988,48 @@ void solve_row_clearly(Operations& ops, const int row, Board& state_now, const B
       const int lr_kata_id = get_max_kata_id(h - 1 - row);
       const int lr_kata_size = cutting_dies[lr_kata_id].height();
 
-      const int u_kata_id = get_max_kata_id(i - row + 1);
+      // type1ではなくtype2を使ってそろえる
+      const int u_kata_id = get_max_kata_id(i - row + 1 + 1);
       const int u_kata_size = cutting_dies[u_kata_id].height();
 
       for(int j = 0; j < w; j++){
-        int step = 1 + (j != st_j); // かかる手数
-        step = 1;
-        const int len = min((int)z[(i-row)*(w+1) + ulen+1 + j], u_kata_size); // 長さ
-        if(row == 56 && st_j == 17 && len) cerr << "(" << i << "," << j << "," << len << ") ";
-        if(len / step >= limit || true){ // 十分大きなピース群を発見
-          if(abs(j - st_j) > lr_kata_size && (!((h-1 - i) & 1) || j == st_j)){
-            continue;
-          }
-          if(len*2 + (j == st_j) > max_len) max_len = len*2 + (j == st_j);
-          if(len >= 1){
-            candidates.push_back({len*2 + (j == st_j), Operation(0, i, j, Dir::U)});
-          }
+        const int con_len = z[(i-row)*(w+1) + ulen+1 + j]; // 連続して繋がってる長さ
+        const int len_std = min(con_len, u_kata_size); // 長さ
+
+        if(con_len <= 0) continue;
+
+        if(j == st_j){
+          // そのまま落とせる
+          candidates.push_back({0, len_std, con_len, u_kata_size, Operation(0, i, j, Dir::U)});
+        }else if(abs(j - st_j) <= lr_kata_size){
+          // lr_kata_sizeで余白を寄せられる
+          candidates.push_back({1, len_std, con_len, u_kata_size, Operation(lr_kata_id, i, j, Dir::U)});
+        }else if((h-1 - i) & 1){
+          // 23を使う
+          candidates.push_back({2, len_std, con_len, u_kata_size, Operation(23, i, j, Dir::U)});
+        }else if((len_std + st_j <= lr_kata_size && st_j < j) || (w-st_j <= lr_kata_size && j < st_j)){
+          // lenもまとめて移動できる
+          candidates.push_back({3, len_std, con_len, u_kata_size, Operation(lr_kata_id, i, j, Dir::U)});
+        }else{
+          continue;
         }
+
+        if(len_std*2 + (j == st_j) > max_len) max_len = len_std*2 + (j == st_j);
       }
     }
 
-    sort(candidates.begin(), candidates.end(), [](const auto &a, const auto &b){
-      return a.first > b.first;
+    sort(candidates.begin(), candidates.end(), [](const CandInfo &a, const CandInfo &b){
+      // return a.len * (1 + !!b.move_type) > b.len * (1 + !!a.move_type);
+      // 最終的にそろった時の量を評価
+      const int anum = (a.con_len + a.u_kata_size-1) / a.u_kata_size + !!a.move_type;
+      const int bnum = (b.con_len + b.u_kata_size-1) / b.u_kata_size + !!b.move_type;
+      return a.con_len * bnum > b.con_len * anum;
     });
 
-    const auto above_maxlen_info = find_above_max_len(row, st_j, state_now, state_goal);
-    cerr << "maxlen: " << max_len/2 << ", limit: " << limit << ", st_j: " << st_j << ", row: " << row << ", ";
-    cerr << "above maxlen: " << above_maxlen_info.first << " (" << above_maxlen_info.second.x() << ")" << "\n";
+    // const auto above_maxlen_info = find_above_max_len(row, st_j, state_now, state_goal);
+    // cerr << "maxlen: " << max_len/2 << ", limit: " << limit << ", st_j: " << st_j << ", row: " << row << ", ";
+    // cerr << "above maxlen: " << above_maxlen_info.first << " (" << above_maxlen_info.second.x() << ")" << "\n";
+
     // 2手以内で揃えられるピース群がない
     if(max_len/2 <= 0){
       // type2の抜き型で未完成部分の行の偶奇を変える
@@ -921,52 +1037,45 @@ void solve_row_clearly(Operations& ops, const int row, Board& state_now, const B
       continue;
     }
 
-    const auto best_connection = search_best_connection(row, state_now, state_goal);
-    const int longest = find_max_len(row, st_j, state_now, state_goal);
-    if(longest * 4 < (1 + !(max_len & 1)) * best_connection.second){
-      cerr << "longest: " << longest << " " << best_connection.second << "\n";
-      cerr << "connection is better\n";
-      slide_and_output(best_connection.first, ops, state_now);
-      continue;
-    }
+    // const auto best_connection = search_best_connection(row, state_now, state_goal);
+    // const int longest = find_max_len(row, st_j, state_now, state_goal);
+    // if(longest * 4 < (1 + !(max_len & 1)) * best_connection.second){
+    //   cerr << "longest: " << longest << " " << best_connection.second << "\n";
+    //   cerr << "connection is better\n";
+    //   slide_and_output(best_connection.first, ops, state_now);
+    //   continue;
+    // }
 
 
-    Operations best_op;
-    int best_score = -1, best_len = -1;
+    const int first_search_num = min(max_select_num, (int)candidates.size());
 
-    for(int p = 0; p < min(max_select_num, (int)candidates.size()); p++){
-      const int i = candidates[p].second.y();
-      const int j = candidates[p].second.x();
+    vector<int> cand_scores(first_search_num, -1), cand_lens(first_search_num);
+    vector<Operations> cand_ops(first_search_num);
+    static vector<Board> boards(max_select_num, Board(h, w));
+
+    #pragma omp parallel for
+    for(int p = 0; p < first_search_num; p++){
+      const int i = candidates[p].pos.y();
+      const int j = candidates[p].pos.x();
 
       const int lr_kata_id = get_max_kata_id(h - 1 - row);
       const int lr_kata_size = cutting_dies[lr_kata_id].height();
 
-      const int u_kata_id = get_max_kata_id(i - row + 1);
+      const int u_kata_id = get_max_kata_id(i - row + 1 + 1);
       const int u_kata_size = cutting_dies[u_kata_id].height();
 
       Operations op;
-      Board tmp_state = state_now;
+      op.reserve(2);
+      // Board tmp_state = state_now;
+      Board& tmp_state = boards[p];
+      tmp_state.copy(state_now, row);
 
-      // int step = 1 + (j != st_j); // かかる手数
-      // step = 1;
       const int len = min((int)z[(i-row)*(w+1) + ulen+1 + j], u_kata_size); // 長さ
 
       const int nuki_row = (i + lr_kata_size <= h - 1 ? i : h-1 - lr_kata_size); // 左右の抜き型を使う行
-      if(abs(j - st_j) > lr_kata_size && (!((h-1 - i) & 1) || j == st_j)){
-        assert(false);
-        continue;
-      }
 
-      // type2の抜き型を使ってst_jに持ってく
-      if(abs(j - st_j) > lr_kata_size){
-        if(j < st_j){
-          op.push_back({23, i, w - abs(st_j - j), Dir::R});
-          tmp_state.slide(op.back());
-        }else if(st_j < j){
-          op.push_back({23, i, -256 + abs(st_j - j), Dir::L});
-          tmp_state.slide(op.back());
-        }
-      }else{
+      // lr_kata_sizeで余白を寄せる
+      if(candidates[p].move_type == 1){
         if(j < st_j){
           // 右から st_j - j 行を左へもっていく
           op.push_back({lr_kata_id, nuki_row, w - abs(st_j - j), Dir::R});
@@ -976,26 +1085,28 @@ void solve_row_clearly(Operations& ops, const int row, Board& state_now, const B
           op.push_back({lr_kata_id, nuki_row, abs(st_j - j) - lr_kata_size, Dir::L});
           tmp_state.slide(op.back());
         }
-
-        // Operation best_op(1U << 31);
-        // int next_maxlen = -1;
-        // for(int kata = u_kata_id; kata >= 0; kata -= 3){
-        //   const int size = cutting_dies[kata].height();
-        //   if(max_len/2 > size) break;
-        //   Board tmp_state = state_now;
-        //   tmp_state.slide({kata, i+1-size, st_j, Dir::U});
-        //   const int next_len = find_max_len(row, st_j + max_len/2, tmp_state, state_goal);
-        //   if(next_maxlen < next_len){
-        //     next_maxlen = next_len;
-        //     best_op = Operation(kata, i+1-size, st_j, Dir::U);
-        //   }
-        // }
-        // assert(best_op != Operation(1U << 31));
-        // slide_and_output(best_op, ops, state_now);
-
-        // slide_and_output({u_kata_id, i + 1 - u_kata_size, st_j, Dir::U}, ops, state_now);
       }
-      int kata = u_kata_id;
+      // type2の抜き型を使ってst_jに持ってく
+      else if(candidates[p].move_type == 2){
+        if(j < st_j){
+          op.push_back({23, i, w - abs(st_j - j), Dir::R});
+          tmp_state.slide(op.back());
+        }else if(st_j < j){
+          op.push_back({23, i, -256 + abs(st_j - j), Dir::L});
+          tmp_state.slide(op.back());
+        }
+      }
+      // lenもまとめて移動する
+      else if(candidates[p].move_type == 3){
+        if(len + st_j <= lr_kata_size && st_j < j){
+          op.push_back({lr_kata_id, nuki_row, j - st_j, Dir::R});
+          tmp_state.slide(op.back());
+        }else{
+          op.push_back({lr_kata_id, nuki_row, j + w-st_j - lr_kata_size, Dir::L});
+          tmp_state.slide(op.back());
+        }
+      }
+
       // if(len < u_kata_size) for(; kata-3 >= 1; kata -= 3){
       //   if(len > (int)cutting_dies[kata].height()){
       //     kata = min(u_kata_id, kata + 3);
@@ -1003,19 +1114,70 @@ void solve_row_clearly(Operations& ops, const int row, Board& state_now, const B
       //   }
       // }
       // op.push_back({u_kata_id, i + 1 - u_kata_size, st_j, Dir::U});
-      op.push_back({kata, i + 1 - (int)cutting_dies[kata].height(), st_j, Dir::U});
-      tmp_state.slide(op.back());
 
-      int nxt_j = st_j + len;
-      while(nxt_j < w && tmp_state[h-1][nxt_j] == state_goal[h-row-1][nxt_j]) nxt_j++;
-      const int next_maxlen = find_max_len(row, nxt_j, tmp_state, state_goal);
-      const int score = (next_maxlen + nxt_j - st_j) * 1000 / (1 + (j != st_j) + 2);
-      if(best_score < score){
-        best_score = score;
-        best_len = len;
-        best_op = move(op);
+      if(h*w < 150*150){
+        Operations down_cand_ops;
+        for(int kata = u_kata_id; kata >= 1; kata -= 3){
+          if((int)cutting_dies[kata].height() > i - row + 1) continue;
+          // type1
+          down_cand_ops.push_back({kata, i + 1 - (int)cutting_dies[kata].height(), st_j, Dir::U});
+          if((int)cutting_dies[kata].width() < len) break;
+        }
+        for(int kata = u_kata_id; kata >= 1; kata -= 3){
+          // type2
+          down_cand_ops.push_back({kata+1, i + 1 - (int)cutting_dies[kata].height() + 1, st_j, Dir::U});
+          if((int)cutting_dies[kata].width() < len) break;
+        }
+
+        Operation best(1U << 31);
+        for(const Operation down_op : down_cand_ops){
+          tmp_state.slide(down_op);
+          int nxt_j = st_j;
+          while(nxt_j < w && tmp_state[h-1][nxt_j] == state_goal[h-row-1][nxt_j]) nxt_j++;
+          const auto next_maxlen_info = find_max_len(row, nxt_j, tmp_state, state_goal);
+          const int score = (next_maxlen_info.first + nxt_j - st_j) * 1000 / (1 + (j != st_j) + next_maxlen_info.second);
+          tmp_state.slide_reverse(down_op);
+
+          if(cand_scores[p] < score){
+            cand_scores[p] = score;
+            cand_lens[p] = len;
+            best = down_op;
+          }
+        }
+        assert(best != Operation(1U << 31));
+
+        op.push_back(best);
+        cand_ops[p] = move(op);
+      }else{
+        const int kata = u_kata_id;
+
+        // type2を使て下に落とす
+        op.push_back({kata+1, i + 1 - (int)cutting_dies[kata].height() + 1, st_j, Dir::U});
+        tmp_state.slide(op.back());
+
+        int nxt_j = st_j + len;
+        while(nxt_j < w && tmp_state[h-1][nxt_j] == state_goal[h-row-1][nxt_j]) nxt_j++;
+        const auto next_maxlen_info = find_max_len(row, nxt_j, tmp_state, state_goal);
+        int cnt = 0;
+        // for(int j = nxt_j; j < w; j++) if(tmp_state[h-1][j] == state_goal[h-row-1][j]) cnt++;
+        const int score = (next_maxlen_info.first + nxt_j - st_j + cnt) * 100000 / (1 + (j != st_j) + next_maxlen_info.second);
+        cand_scores[p] = score;
+        cand_lens[p] = len;
+        cand_ops[p] = move(op);
       }
     }
+
+    Operations best_op;
+    int best_score = -1, best_len = -1;
+
+    for(int p = 0; p < first_search_num; p++){
+      if(best_score < cand_scores[p]){
+        best_score = cand_scores[p];
+        best_len = cand_lens[p];
+        best_op = move(cand_ops[p]);
+      }
+    }
+
     if(!best_op.empty()){
       for(const Operation op : best_op){
         slide_and_output(op, ops, state_now);
@@ -1231,22 +1393,41 @@ int main(){
 
 
   // 盤面入力
-  int h,w, mode;
-  cin >> h >> w >> mode;
+  int bh,bw;
+  cin >> bh >> bw >> conversion_mode;
+  int h, w;
+  {
+    auto [ny, nx, nh, nw] = conversion_coordinate({0, 0, bh, bw}, conversion_mode);
+    h = nh, w = nw;
+  }
   Board state_start(h, w);
-  for(int i = 0; i < h; i++){
+  for(int i = 0; i < bh; i++){
     string s; cin >> s;
-    for(int j = 0; j < w; j++){
-      state_start[i][j] = s[j] - '0';
+    for(int j = 0; j < bw; j++){
+      auto [ny, nx, nh, nw] = conversion_coordinate({i, j, bh, bw}, conversion_mode);
+      state_start[ny][nx] = s[j] - '0';
     }
   }
   Board state_goal(h, w);
-  for(int i = 0; i < h; i++){
+  for(int i = 0; i < bh; i++){
     string s; cin >> s;
-    for(int j = 0; j < w; j++){
-      state_goal[i][j] = s[j] - '0';
+    for(int j = 0; j < bw; j++){
+      auto [ny, nx, nh, nw] = conversion_coordinate({i, j, bh, bw}, conversion_mode);
+      state_goal[ny][nx] = s[j] - '0';
     }
   }
+
+  const int shuffle_num = 30;
+  Operations last_ops;
+  for(int i = 0; i < shuffle_num; i++){
+    const int id = rnd(9, 25);
+		const int y = rnd(0, h);
+		const int x = rnd(0, w);
+		const Dir d = (Dir)rnd(0, 4);
+		last_ops.push_back({id, y, x, d});
+    state_goal.slide_reverse(last_ops.back());
+  }
+  reverse(last_ops.begin(), last_ops.end());
 
   // 手順を計算
   const auto ops = solve(state_start, state_goal);
@@ -1261,6 +1442,12 @@ int main(){
     for(int j = 0; j < w; j++){
       assert(state_now[i][j] == state_goal[i][j]);
     }
+  }
+
+  const int reverse_mode = (conversion_mode >= 4 ? conversion_mode : conversion_mode ^ (conversion_mode & 1) << 1);
+  for(const Operation op : last_ops){
+    const Operation new_op = conversion_op(h, w, op, reverse_mode);
+    cout << new_op << "\n";
   }
 
   // 操作終了
